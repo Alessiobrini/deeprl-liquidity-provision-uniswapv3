@@ -44,17 +44,6 @@ Reward is the result of liquidity reallocation
 
 '''
 
-# check how to express
-
-
-c_t = 1000000 # cash hold
-m_t = 10 # central tick to be inferred from the price
-w_t = 0 # width of liquidity interval
-l_t = 0 # value of initial liquidity
-
-
-
-
 class Uniswapv3Env(gym.Env):
     """
     A custom environment for simulating interaction in a Uniswapv3 AMM.
