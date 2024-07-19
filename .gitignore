@@ -1,6 +1,7 @@
 # my dirs to ignore
 data/
 outputs/
+old/
 
 
 # Byte-compiled / optimized / DLL files
