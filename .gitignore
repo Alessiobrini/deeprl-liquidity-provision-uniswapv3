@@ -2,6 +2,8 @@
 data/
 outputs/
 old/
+results/
+figs/
 
 
 # Byte-compiled / optimized / DLL files
