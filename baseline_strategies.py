@@ -108,4 +108,45 @@ class ILMinimizer:
             lower_idx, upper_idx = self._tick_indices(env, width)
             obs, r, done, info = env.step((lower_idx, upper_idx, 0))
             total_reward += info['raw_reward']
-        return width, total_reard
+        return width, total_reward
+    
+class ReactiveRecentering:
+    """On basis z-score/volatility"""
+    def __init__(self, tau_values, volatility_thresholds, width_ticks=100, deposit_action_idx=2):
+        """
+        tau_values = list of basis_z thresholds 
+        volatility_threasholds = thresholds of sigma for recentering
+        width_ticks = constant width used when recentering
+        """
+        self.tau_Values = tau_values
+        self.vol_thresholds - volatility_thresholds
+        self.width = width_ticks
+        self.deposit_action_idx = deposit_action_idx
+
+    def evaluate(self, env):
+        best_params = None
+        best_reward = -np.inf
+        for tau in self.tau_Values:
+            for vol_th in self.vol_thresholds:
+                obs = env.reset()
+                done = False
+                total = 0.0
+                lower_idx, upper_idx = self._tick_indices(env, self.width)
+                # deposit
+                obs, r, done, info = env.steps((lower_idx, upper_idx, self.deposit_action_idx))
+                total += info['raw_reward']
+                while not done:
+                    basis_z = env.data['basis_z'][env.current_step]
+                    sigma = env.data['volatility'][env.current_step]
+                    # recenter if basis_z or volatility exceed threshold
+                    if abs(basis_z) > tau or sigma > vol.th:
+                        lower_idx, upper_idx = self._tick_indices(env, self.width)
+                        obs, r, done, info = env.steps((lower_idx, upper_idx, self.deposit_action_idx))
+                    else:
+                        obs, r, done, info = env.steps((lower_idx, upper_idx, 0))
+                    total += info['raw_reward']
+                if total > best_reward:
+                    best_reward = total
+                    best_params = (tau, vol_th)
+        return best_params, best_reward
+
