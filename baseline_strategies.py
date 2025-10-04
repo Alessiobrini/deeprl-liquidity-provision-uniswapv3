@@ -80,3 +80,32 @@ class VolProportionalWidth:
                 best_reward = total_reward
                 best_k = k
         return best_k, best_reward
+
+class ILMinimizer:
+    """Exponential-weighted variance model to choose band that minimizes expected IL over a horizon H"""
+    def __init__(self, horizon_hours, deposit_action_idx=2):
+        self.H = horizon_hours
+        self.deposit_action_idx = deposit_action_idx
+
+    def optimal_width(self, sigma):
+        """Choose width to minimize expected IL over horizon H"""
+        # Heuristic: width ~ 2 * sigma * sqrt(H)
+        # Heuristic (width) Optimization: TODO: Derive formulas from Cartea-Drissi-Monga (2023)
+        return int(2 * sigma * np.sqrt(self.H) * 100)
+    
+    def evaluate(self, env):
+        obs = env.reset()
+        done = False
+        total_reard = 0.0
+        sigma = env.data['volatility'][0]
+        width = self.optimal_width(sigma)
+        lower_idx, upper_idx = self._tick_indices(env, width)
+        obs, r, done, info = env.step((lower_idx, upper_idx, self.deposit_action_idx))
+        total_reward += info['raw_reward']
+        while not done:
+            sigma = env.data['volatility'][env.current_step]
+            width = self.optimal_width(sigma)
+            lower_idx, upper_idx = self._tick_indices(env, width)
+            obs, r, done, info = env.step((lower_idx, upper_idx, 0))
+            total_reward += info['raw_reward']
+        return width, total_reard
