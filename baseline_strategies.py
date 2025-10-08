@@ -124,42 +124,52 @@ class ILMinimizer:
         return width, total_raw
     
 class ReactiveRecentering:
-    """On basis z-score/volatility"""
-    def __init__(self, tau_values, volatility_thresholds, width_ticks=100, deposit_action_idx=2):
+    """
+    Recenter band when volatility exceeds a threshold or large price change.
+    Since this env doesn’t expose basis_z, we react to σ_t and price jumps.
+    """
+    def __init__(self, vol_thresholds, price_jump_thresholds,
+                 width_ticks, deposit_action_idx=1):
         """
-        tau_values = list of basis_z thresholds 
-        volatility_threasholds = thresholds of sigma for recentering
-        width_ticks = constant width used when recentering
+        vol_thresholds: list of σ_t thresholds (raw σ values) for recentering.
+        price_jump_thresholds: list of fractional price-change thresholds (e.g. 0.01 for 1%).
+        width_ticks: fixed width to use when (re)deploying.
         """
-        self.tau_Values = tau_values
-        self.vol_thresholds - volatility_thresholds
-        self.width = width_ticks
+        self.vol_thresholds = vol_thresholds
+        self.price_jump_thresholds = price_jump_thresholds
+        self.width_ticks = width_ticks
         self.deposit_action_idx = deposit_action_idx
 
-    def evaluate(self, env):
-        best_params = None
-        best_reward = -np.inf
-        for tau in self.tau_Values:
-            for vol_th in self.vol_thresholds:
-                obs = env.reset()
-                done = False
-                total = 0.0
-                lower_idx, upper_idx = self._tick_indices(env, self.width)
-                # deposit
-                obs, r, done, info = env.steps((lower_idx, upper_idx, self.deposit_action_idx))
-                total += info['raw_reward']
-                while not done:
-                    basis_z = env.data['basis_z'][env.current_step]
-                    sigma = env.data['volatility'][env.current_step]
-                    # recenter if basis_z or volatility exceed threshold
-                    if abs(basis_z) > tau or sigma > vol.th:
-                        lower_idx, upper_idx = self._tick_indices(env, self.width)
-                        obs, r, done, info = env.steps((lower_idx, upper_idx, self.deposit_action_idx))
-                    else:
-                        obs, r, done, info = env.steps((lower_idx, upper_idx, 0))
-                    total += info['raw_reward']
-                if total > best_reward:
-                    best_reward = total
-                    best_params = (tau, vol_th)
-        return best_params, best_reward
+    def _run_params(self, env, vol_th, jump_th):
+        env.reset()
+        done = False
+        total_raw = 0.0
+        last_price = env.market_data[0]
+        # initial deposit with fixed width
+        act_idx = _nearest_action_index(env, self.width_ticks)
+        _, _, done, _, info = env.step(act_idx)
+        total_raw += info.get('raw_reward', 0.0)
+        while not done:
+            sigma = env.ew_sigma[env.count]
+            current_price = env.market_data[env.count]
+            # compute fractional price change from last hour
+            pct_change = abs(current_price - last_price) / max(last_price, 1e-12)
+            # recenter if σ or price change exceeds threshold
+            if sigma > vol_th or pct_change > jump_th:
+                act_idx = _nearest_action_index(env, self.width_ticks)
+                last_price = current_price
+            else:
+                act_idx = 0  # hold
+            _, _, done, _, info = env.step(act_idx)
+            total_raw += info.get('raw_reward', 0.0)
+        return total_raw
 
+    def evaluate(self, env):
+        best_params, best_reward = None, -np.inf
+        for v_th in self.vol_thresholds:
+            for j_th in self.price_jump_thresholds:
+                r = self._run_params(env, v_th, j_th)
+                if r > best_reward:
+                    best_reward = r
+                    best_params = (v_th, j_th)
+        return best_params, best_reward
