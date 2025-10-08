@@ -1,50 +1,49 @@
 import numpy as np
 
 class PassiveWidthSweep:
-    def __init__(self, width_candidates, deposit_action_idx=2):
+    def __init__(self, width_candidates, deposit_action_idx=1):
         """
-        width_candidates: list of tick widths (e.g. [20, 40, 60, ..., 200])
-        deposit_action_idx: which liquidity_move_idx corresponds to depositing.
+        width_candidates: list of widths (e.g. [20, 40, 60, 80, 100]).
+        deposit_action_idx: index corresponding to 'deposit' in env.action_values.
         """
         self.widths = width_candidates
         self.deposit_action_idx = deposit_action_idx
 
-    def _tick_indices(self, env, width_ticks):
-        """Compute lower/upper indices given width in ticks."""
-        current_price = env.data['price'][env.current_step]
-        current_tick = env.price_to_tick(current_price)
-        half_width = width_ticks // 2
-        lower_tick = current_tick - half_width * env.tick_step
-        upper_tick = current_tick + half_width * env.tick_step
-        lower_idx = max(0, (lower_tick - env.min_tick) // env.tick_step)
-        upper_idx = min(env.num_tick_choices - 1, (upper_tick - env.min_tick) // env.tick_step)
-        return lower_idx, upper_idx
+    def _find_action_index(self, env, width):
+        """Return the index in env.action_values closest to the desired width."""
+        diffs = [abs(w - width) for w in env.action_values]
+        return int(np.argmin(diffs))
 
-    def run_once(self, env, width_ticks):
-        """Simulate one passive strategy over entire window with fixed width."""
-        lower_idx, upper_idx = self._tick_indices(env, width_ticks)
-        obs = env.reset()
+    def run_once(self, env, width):
+        """Run a passive policy with a fixed width for one episode."""
+        # find nearest action index for initial deposit
+        action_idx = self._find_action_index(env, width)
+        obs, _ = env.reset()
         done = False
-        total_reward = 0.0
-        # first step: deposit into the pool (liquidity_move_idx = deposit_action_idx)
-        obs, r, done, info = env.step((lower_idx, upper_idx, self.deposit_action_idx))
-        total_reward += info['raw_reward']
+        total_raw_reward = 0.0
+        # deposit liquidity at the beginning
+        _, _, done, _, info = env.step(action_idx)
+        total_raw_reward += info.get('raw_reward', 0.0)
         while not done:
-            # hold the same band and don’t rebalance
-            obs, r, done, info = env.step((lower_idx, upper_idx, 0))
-            total_reward += info['raw_reward']
-        return total_reward
+            # hold liquidity (action 0 -> no rebalance)
+            _, _, done, _, info = env.step(0)
+            total_raw_reward += info.get('raw_reward', 0.0)
+        return total_raw_reward
 
     def evaluate(self, env):
         """Try each width and return the best width and its reward."""
         best_width = None
         best_reward = -np.inf
         for w in self.widths:
+            if w not in env.action_values:
+                # only evaluate widths that exist in env.action_values
+                continue
             reward = self.run_once(env, w)
             if reward > best_reward:
                 best_reward = reward
                 best_width = w
         return best_width, best_reward
+
     
     
 class VolProportionalWidth:
