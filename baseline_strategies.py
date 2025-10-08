@@ -1,49 +1,53 @@
 import numpy as np
+import math
+
+def _nearest_action_index(env, width):
+    """
+    Given a desired width, find the index of the nearest available width
+    in env.action_values. env.action_values is a numpy array of ints/floats.
+    """
+    diffs = np.abs(env.action_values - width)
+    return int(np.argmin(diffs))
+
 
 class PassiveWidthSweep:
+    """Test a set of fixed widths and pick the one with highest PnL."""
     def __init__(self, width_candidates, deposit_action_idx=1):
         """
-        width_candidates: list of widths (e.g. [20, 40, 60, 80, 100]).
-        deposit_action_idx: index corresponding to 'deposit' in env.action_values.
+        width_candidates: list of widths (integers) expressed in tick spacing units.
+        deposit_action_idx: index in env.action_values that triggers deposit/withdraw.
+                            In Uniswapv3Env this is 1 by default (action=0 means hold).
         """
         self.widths = width_candidates
         self.deposit_action_idx = deposit_action_idx
 
-    def _find_action_index(self, env, width):
-        """Return the index in env.action_values closest to the desired width."""
-        diffs = [abs(w - width) for w in env.action_values]
-        return int(np.argmin(diffs))
-
-    def run_once(self, env, width):
-        """Run a passive policy with a fixed width for one episode."""
-        # find nearest action index for initial deposit
-        action_idx = self._find_action_index(env, width)
-        obs, _ = env.reset()
+    def _run_width(self, env, width):
+        # find the closest available width index
+        act_idx = _nearest_action_index(env, width)
+        env.reset()
         done = False
-        total_raw_reward = 0.0
-        # deposit liquidity at the beginning
-        _, _, done, _, info = env.step(action_idx)
-        total_raw_reward += info.get('raw_reward', 0.0)
+        total_raw = 0.0
+        # initial deposit
+        _, _, done, _, info = env.step(act_idx)
+        total_raw += info.get('raw_reward', 0.0)
+        # hold the position until episode ends
         while not done:
-            # hold liquidity (action 0 -> no rebalance)
             _, _, done, _, info = env.step(0)
-            total_raw_reward += info.get('raw_reward', 0.0)
-        return total_raw_reward
+            total_raw += info.get('raw_reward', 0.0)
+        return total_raw
 
     def evaluate(self, env):
-        """Try each width and return the best width and its reward."""
-        best_width = None
+        best_w = None
         best_reward = -np.inf
         for w in self.widths:
+            # skip widths not in action_values
             if w not in env.action_values:
-                # only evaluate widths that exist in env.action_values
                 continue
-            reward = self.run_once(env, w)
+            reward = self._run_width(env, w)
             if reward > best_reward:
                 best_reward = reward
-                best_width = w
-        return best_width, best_reward
-
+                best_w = w
+        return best_w, best_reward
     
     
 class VolProportionalWidth:
