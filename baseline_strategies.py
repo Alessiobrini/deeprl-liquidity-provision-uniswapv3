@@ -51,36 +51,42 @@ class PassiveWidthSweep:
     
     
 class VolProportionalWidth:
-    def __init__(self, k_values, deposit_action_idx=2):
+    """Set width ∝ volatility σ_t; choose nearest available width."""
+    def __init__(self, k_values, base_factor=100.0, deposit_action_idx=1):
         """
-        k_values: list of multipliers; width_t = k * sigma_t.
+        k_values: list of multipliers for σ.  width_t ≈ k * σ_t * base_factor.
+        base_factor: converts σ into tick units (adjust empirically).
         """
         self.k_values = k_values
+        self.base_factor = base_factor
         self.deposit_action_idx = deposit_action_idx
 
+    def _run_k(self, env, k):
+        env.reset()
+        done = False
+        total_raw = 0.0
+        # compute width from sigma[0]
+        sigma = env.ew_sigma[0]
+        width = int(k * sigma * self.base_factor)
+        act_idx = _nearest_action_index(env, width)
+        # deposit at start
+        _, _, done, _, info = env.step(act_idx)
+        total_raw += info.get('raw_reward', 0.0)
+        # each hour, recompute width based on new sigma and recenter if changed
+        while not done:
+            sigma = env.ew_sigma[env.count]
+            width = int(k * sigma * self.base_factor)
+            act_idx = _nearest_action_index(env, width)
+            _, _, done, _, info = env.step(act_idx if act_idx != 0 else 0)
+            total_raw += info.get('raw_reward', 0.0)
+        return total_raw
+
     def evaluate(self, env):
-        best_k = None
-        best_reward = -np.inf
+        best_k, best_reward = None, -np.inf
         for k in self.k_values:
-            obs = env.reset()
-            done = False
-            total_reward = 0.0
-            # initial band based on sigma_0
-            sigma = env.data['volatility'][0]
-            width = int(k * sigma * 100)  # convert to ticks (CAN EXPERIMENT with scaling)
-            lower_idx, upper_idx = self._tick_indices(env, width)
-            # deposit once
-            obs, r, done, info = env.step((lower_idx, upper_idx, self.deposit_action_idx))
-            total_reward += info['raw_reward']
-            # recompute width each hour based on new sigma and recenter
-            while not done:
-                sigma = env.data['volatility'][env.current_step]
-                width = int(k * sigma * 100)
-                lower_idx, upper_idx = self._tick_indices(env, width)
-                obs, r, done, info = env.step((lower_idx, upper_idx, 0))
-                total_reward += info['raw_reward']
-            if total_reward > best_reward:
-                best_reward = total_reward
+            r = self._run_k(env, k)
+            if r > best_reward:
+                best_reward = r
                 best_k = k
         return best_k, best_reward
 
