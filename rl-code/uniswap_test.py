@@ -82,7 +82,7 @@ def optimize_ppo(trial, param_name, uni_train, uni_test):
     trial_counter += 1
     print("Trial Count: ", trial_counter)
     
-    base_dir = os.getcwd()
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     config_dir = os.path.join(base_dir, "config")
     # Load hyperparam file
     with open(os.path.join(config_dir, param_name), "r") as f:
@@ -183,7 +183,7 @@ def optimize_ppo(trial, param_name, uni_train, uni_test):
 if __name__ == "__main__":
     
     # create directory
-    base_dir = os.getcwd()
+    base_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = os.path.join(base_dir, "output")
     config_dir = os.path.join(base_dir, "config")
     plot_dir = os.path.join(base_dir, "plot")
@@ -199,7 +199,7 @@ if __name__ == "__main__":
         params = yaml.safe_load(f)
     
     # import market data
-    uni_table = pd.read_csv(params['filename'])
+    uni_table = pd.read_csv(os.path.join(base_dir, params['filename']))
 
     uni_time = uni_table[['timestamp']]
     uni_data = uni_table[['price']]
