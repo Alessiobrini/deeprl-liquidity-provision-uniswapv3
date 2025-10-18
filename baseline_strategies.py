@@ -28,12 +28,12 @@ class PassiveWidthSweep:
         done = False
         total_raw = 0.0
         # initial deposit
-        _, _, done, _, info = env.step(act_idx)
-        total_raw += info.get('raw_reward', 0.0)
+        _, reward, done, _, _ = env.step(act_idx)
+        total_raw += reward
         # hold the position until episode ends
         while not done:
-            _, _, done, _, info = env.step(0)
-            total_raw += info.get('raw_reward', 0.0)
+            _, reward, done, _, _ = env.step(0)
+            total_raw += reward
         return total_raw
 
     def evaluate(self, env):
@@ -70,15 +70,15 @@ class VolProportionalWidth:
         width = int(k * sigma * self.base_factor)
         act_idx = _nearest_action_index(env, width)
         # deposit at start
-        _, _, done, _, info = env.step(act_idx)
-        total_raw += info.get('raw_reward', 0.0)
+        _, reward, done, _, _ = env.step(act_idx)
+        total_raw += reward
         # each hour, recompute width based on new sigma and recenter if changed
         while not done:
             sigma = env.ew_sigma[env.count]
             width = int(k * sigma * self.base_factor)
             act_idx = _nearest_action_index(env, width)
-            _, _, done, _, info = env.step(act_idx if act_idx != 0 else 0)
-            total_raw += info.get('raw_reward', 0.0)
+            _, reward, done, _, _ = env.step(act_idx if act_idx != 0 else 0)
+            total_raw += reward
         return total_raw
 
     def evaluate(self, env):
@@ -112,15 +112,15 @@ class ILMinimizer:
         sigma = env.ew_sigma[0]
         width = self._optimal_width(sigma)
         act_idx = _nearest_action_index(env, width)
-        _, _, done, _, info = env.step(act_idx)
-        total_raw += info.get('raw_reward', 0.0)
+        _, reward, done, _, _ = env.step(act_idx)
+        total_raw += reward
         # update width each step
         while not done:
             sigma = env.ew_sigma[env.count]
             width = self._optimal_width(sigma)
             act_idx = _nearest_action_index(env, width)
-            _, _, done, _, info = env.step(act_idx if act_idx != 0 else 0)
-            total_raw += info.get('raw_reward', 0.0)
+            _, reward, done, _, _ = env.step(act_idx if act_idx != 0 else 0)
+            total_raw += reward
         return width, total_raw
     
 class ReactiveRecentering:
@@ -147,8 +147,8 @@ class ReactiveRecentering:
         last_price = env.market_data[0]
         # initial deposit with fixed width
         act_idx = _nearest_action_index(env, self.width_ticks)
-        _, _, done, _, info = env.step(act_idx)
-        total_raw += info.get('raw_reward', 0.0)
+        _, reward, done, _, _ = env.step(act_idx)
+        total_raw += reward
         while not done:
             sigma = env.ew_sigma[env.count]
             current_price = env.market_data[env.count]
@@ -160,8 +160,8 @@ class ReactiveRecentering:
                 last_price = current_price
             else:
                 act_idx = 0  # hold
-            _, _, done, _, info = env.step(act_idx)
-            total_raw += info.get('raw_reward', 0.0)
+            _, reward, done, _, _ = env.step(act_idx)
+            total_raw += reward
         return total_raw
 
     def evaluate(self, env):
