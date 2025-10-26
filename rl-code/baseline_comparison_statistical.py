@@ -111,6 +111,11 @@ def compute_statistics(data_dict, baseline_key='PPO'):
 
     Returns:
         DataFrame with statistical summary
+
+    Note:
+        For deterministic baselines, their values are replicated across seeds
+        to match the structure of PPO (which has different values per seed).
+        This allows for proper statistical comparison via t-tests.
     """
     results = []
     baseline_data = np.array(data_dict[baseline_key])
@@ -269,8 +274,15 @@ def main():
                     print(f"    Evaluating {name}...", end=" ", flush=True)
                     baseline = BaselineClass(**kwargs)
                     baseline_reward = evaluate_baseline(baseline, test_env)
+
+                    # Add to window results once
                     window_results[name].append(baseline_reward)
-                    all_results[name].append(baseline_reward)
+
+                    # Add to all_results replicated across all seeds
+                    # (baselines are deterministic, so same value for all seeds)
+                    for _ in range(n_seeds):
+                        all_results[name].append(baseline_reward)
+
                     print(f"Reward: {baseline_reward:.2f}")
 
         # Compute statistics for this window
