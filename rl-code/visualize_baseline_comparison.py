@@ -235,7 +235,7 @@ def plot_window_progression(output_dir):
 def main():
     """Generate all visualizations."""
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    output_dir = os.path.join(base_dir, "output", "baseline_comparison")
+    output_dir = os.path.join(base_dir, "output", "baseline_comparison_optimized")
 
     if not os.path.exists(output_dir):
         print(f"Error: Output directory not found: {output_dir}")

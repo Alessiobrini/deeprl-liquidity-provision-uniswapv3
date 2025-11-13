@@ -1,7 +1,6 @@
 """
 Enhanced baseline comparison script with statistical analysis.
-Runs PPO and all baseline strategies across multiple seeds and generates
-comprehensive statistical comparisons (mean±std, t-tests, bootstrap CIs).
+Runs PPO (with Optuna hyperparameter optimization) and baseline strategies, then generates comprehensive statistical comparisons (mean±std, t-tests, bootstrap CIs).
 """
 
 import numpy as np
@@ -12,11 +11,14 @@ from pathlib import Path
 import sys
 from datetime import datetime
 from scipy import stats
+from functools import partial
+import optuna
 import warnings
 warnings.filterwarnings('ignore')
 
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.callbacks import EvalCallback, StopTrainingOnNoModelImprovement, CallbackList
 
 # Add project root to path
 project_root = Path(__file__).resolve().parents[1]
@@ -59,11 +61,59 @@ def evaluate_ppo_model(model, env):
     return total_reward
 
 
-def train_ppo_agent(train_env, params, seed):
-    """Train a PPO agent with given parameters and seed."""
-    # Set seeds for reproducibility
-    np.random.seed(seed)
-    train_env.reset(seed=seed)
+def optimize_ppo_trial(trial, params_template, train_df, test_df, seed):
+    """
+    Single Optuna trial for PPO hyperparameter optimization.
+
+    Args:
+        trial: Optuna trial object
+        params_template: Base parameters from YAML
+        train_df: Training data
+        test_df: Test data
+        seed: Random seed
+
+    Returns:
+        tuple: (test_reward, trained_model)
+    """
+    # Copy base params
+    params = params_template.copy()
+
+    # Sample hyperparameters from the search space
+    hyperparameters = params["hyperparameters"]
+    grid = params["grid"]
+
+    for param, (values, dtype) in hyperparameters.items():
+        if param in grid:
+            if dtype == "cat":
+                params[param] = trial.suggest_categorical(param, values)
+            elif dtype == "int":
+                if len(values) == 3:
+                    params[param] = trial.suggest_int(param, values[0], values[1], step=values[2])
+                else:
+                    params[param] = trial.suggest_int(param, values[0], values[1])
+            elif dtype == "float":
+                if len(values) == 3:
+                    params[param] = trial.suggest_float(param, values[0], values[1], step=values[2])
+                else:
+                    params[param] = trial.suggest_float(param, values[0], values[1])
+
+    # Create train environment
+    train_env = Uniswapv3Env(
+        delta=params["delta"],
+        action_values=np.array(params["action_values"], dtype=float),
+        market_data=train_df,
+        x=params["x"],
+        gas=params["gas_fee"],
+    )
+
+    # Create test environment
+    test_env = Uniswapv3Env(
+        delta=params["delta"],
+        action_values=np.array(params["action_values"], dtype=float),
+        market_data=test_df,
+        x=params["x"],
+        gas=params["gas_fee"],
+    )
 
     # Compute dynamic n_steps
     n_steps = max(1, len(train_env.market_data) // 3)
@@ -95,10 +145,62 @@ def train_ppo_agent(train_env, params, seed):
         seed=seed,
     )
 
-    # Train
-    model.learn(total_timesteps=params["total_timesteps_1"])
+    # Train with early stopping
+    stop_train_callback = StopTrainingOnNoModelImprovement(
+        max_no_improvement_evals=5, min_evals=5, verbose=0
+    )
+    eval_callback = EvalCallback(
+        Monitor(train_env),
+        eval_freq=n_steps,
+        callback_after_eval=stop_train_callback,
+        verbose=0
+    )
+    callback = CallbackList([eval_callback])
 
-    return model
+    model.learn(total_timesteps=params["total_timesteps_1"], callback=callback)
+
+    # Evaluate on test set
+    test_reward = evaluate_ppo_model(model, Monitor(test_env))
+
+    return test_reward, model
+
+
+def train_optimized_ppo(params_template, train_df, test_df, seed, n_trials=10):
+    """
+    Train PPO with Optuna hyperparameter optimization.
+
+    Args:
+        params_template: Base parameters
+        train_df: Training data
+        test_df: Test data
+        seed: Random seed
+        n_trials: Number of Optuna trials (default: 10)
+
+    Returns:
+        tuple: (best_reward, best_model)
+    """
+    # Create Optuna study
+    study = optuna.create_study(direction='maximize')
+
+    # Track best model
+    best_model = None
+    best_reward = -np.inf
+
+    def objective(trial):
+        nonlocal best_model, best_reward
+        reward, model = optimize_ppo_trial(trial, params_template, train_df, test_df, seed)
+
+        # Track best model
+        if reward > best_reward:
+            best_reward = reward
+            best_model = model
+
+        return reward
+
+    # Optimize silently
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+
+    return best_reward, best_model
 
 
 def compute_statistics(data_dict, baseline_key='PPO'):
@@ -166,7 +268,7 @@ def main():
     # Setup directories
     base_dir = os.path.dirname(os.path.abspath(__file__))
     config_dir = os.path.join(base_dir, "config")
-    output_dir = os.path.join(base_dir, "output", "baseline_comparison")
+    output_dir = os.path.join(base_dir, "output", "baseline_comparison_optimized")
     os.makedirs(output_dir, exist_ok=True)
 
     # Load hyperparameters
@@ -187,6 +289,7 @@ def main():
     # Configuration
     n_seeds = 5  # Number of random seeds per window
     seeds = [42, 123, 256, 512, 1024][:n_seeds]
+    n_trials_ppo = 10  # Number of Optuna trials for PPO hyperparameter optimization
 
     # Define baseline configurations
     baseline_configs = [
@@ -220,9 +323,10 @@ def main():
     all_results['PPO'] = []
     window_details = []
 
-    print(f"Starting baseline comparison with {n_seeds} seeds per window")
-    print(f"Total windows to process: {len(windows) - 5}")
-    print(f"Baselines: {[name for name, _, _ in baseline_configs]}\n")
+    print(f"Starting FAIR baseline comparison with hyperparameter optimization")
+    print(f"  - PPO: {n_trials_ppo} Optuna trials × {n_seeds} seeds per window")
+    print(f"  - Baselines: Parameter sweeps (optimized)")
+    print(f"  - Total windows to process: {len(windows) - 5}\n")
 
     # Iterate through rolling windows
     for window_idx in range(len(windows) - 5):
@@ -238,52 +342,45 @@ def main():
         window_results = {name: [] for name, _, _ in baseline_configs}
         window_results['PPO'] = []
 
-        # Run multiple seeds
+        # Run multiple seeds (each with hyperparameter optimization)
         for seed_idx, seed in enumerate(seeds):
             print(f"\n  Seed {seed_idx + 1}/{n_seeds} (seed={seed})")
 
-            # Create train environment
-            train_env = Uniswapv3Env(
-                delta=params["delta"],
-                action_values=np.array(params["action_values"], dtype=float),
-                market_data=train_df,
-                x=params["x"],
-                gas=params["gas_fee"],
+            # Train PPO with Optuna hyperparameter optimization
+            print(f"    Optimizing PPO ({n_trials_ppo} trials)...", end=" ", flush=True)
+            ppo_reward, _ = train_optimized_ppo(
+                params, train_df, test_df, seed, n_trials=n_trials_ppo
             )
-
-            # Create test environment
-            test_env = Uniswapv3Env(
-                delta=params["delta"],
-                action_values=np.array(params["action_values"], dtype=float),
-                market_data=test_df,
-                x=params["x"],
-                gas=params["gas_fee"],
-            )
-
-            # Train and evaluate PPO
-            print("    Training PPO...", end=" ", flush=True)
-            ppo_model = train_ppo_agent(train_env, params, seed)
-            ppo_reward = evaluate_ppo_model(ppo_model, Monitor(test_env))
             window_results['PPO'].append(ppo_reward)
             all_results['PPO'].append(ppo_reward)
-            print(f"Reward: {ppo_reward:.2f}")
+            print(f"Best reward: {ppo_reward:.2f}")
 
-            # Evaluate baselines (only once per window since they're deterministic)
-            if seed_idx == 0:
-                for name, BaselineClass, kwargs in baseline_configs:
-                    print(f"    Evaluating {name}...", end=" ", flush=True)
-                    baseline = BaselineClass(**kwargs)
-                    baseline_reward = evaluate_baseline(baseline, test_env)
+        # Evaluate baselines (only once per window since they're deterministic)
+        print(f"\n  Evaluating baselines...")
 
-                    # Add to window results once
-                    window_results[name].append(baseline_reward)
+        # Create test environment for baselines
+        test_env = Uniswapv3Env(
+            delta=params["delta"],
+            action_values=np.array(params["action_values"], dtype=float),
+            market_data=test_df,
+            x=params["x"],
+            gas=params["gas_fee"],
+        )
 
-                    # Add to all_results replicated across all seeds
-                    # (baselines are deterministic, so same value for all seeds)
-                    for _ in range(n_seeds):
-                        all_results[name].append(baseline_reward)
+        for name, BaselineClass, kwargs in baseline_configs:
+            print(f"    {name}...", end=" ", flush=True)
+            baseline = BaselineClass(**kwargs)
+            baseline_reward = evaluate_baseline(baseline, test_env)
 
-                    print(f"Reward: {baseline_reward:.2f}")
+            # Add to window results once
+            window_results[name].append(baseline_reward)
+
+            # Add to all_results replicated across all seeds
+            # (baselines are deterministic, so same value for all seeds)
+            for _ in range(n_seeds):
+                all_results[name].append(baseline_reward)
+
+            print(f"Reward: {baseline_reward:.2f}")
 
         # Compute statistics for this window
         window_stats = compute_statistics(window_results, baseline_key='PPO')
@@ -332,8 +429,8 @@ def main():
     latex_str = latex_table[['Strategy', 'Mean±Std', 'P-value']].to_latex(
         index=False,
         escape=False,
-        caption="Comparison of PPO vs. Baseline Strategies",
-        label="tab:baseline_comparison"
+        caption="Comparison of PPO (optimized) vs. Baseline Strategies (optimized)",
+        label="tab:baseline_comparison_fair"
     )
 
     with open(os.path.join(output_dir, "latex_table.tex"), "w") as f:
