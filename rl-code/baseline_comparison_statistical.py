@@ -323,7 +323,7 @@ def main():
     all_results['PPO'] = []
     window_details = []
 
-    print(f"Starting FAIR baseline comparison with hyperparameter optimization")
+    print(f"Starting baseline comparison with hyperparameter optimization")
     print(f"  - PPO: {n_trials_ppo} Optuna trials × {n_seeds} seeds per window")
     print(f"  - Baselines: Parameter sweeps (optimized)")
     print(f"  - Total windows to process: {len(windows) - 5}\n")
@@ -439,7 +439,7 @@ def main():
     print(f"\n\nResults saved to: {output_dir}")
     print("  - overall_statistics.csv: Statistical summary")
     print("  - detailed_results_all_windows.csv: All raw results")
-    print("  - latex_table.tex: Publication-ready LaTeX table")
+    print("  - latex_table.tex: LaTeX table")
     print("  - window_*_statistics.csv: Per-window statistics")
 
 

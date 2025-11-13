@@ -1,6 +1,5 @@
 """
-Create publication-quality visualizations for baseline comparison results.
-Generates figures suitable for academic papers.
+Create visualizations for baseline comparison results.
 """
 
 import numpy as np
