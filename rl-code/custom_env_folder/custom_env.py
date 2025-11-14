@@ -86,6 +86,7 @@ class Uniswapv3Env(gym.Env):
         # gas fee
         self.gas = gas
         self.x = x
+        self.initial_x = x
         
         # Boundaries to choose
         lower_bounds = []
@@ -146,6 +147,8 @@ class Uniswapv3Env(gym.Env):
         
         self.market_data = self.market_data[ma_window_max:]
         
+        self.ew_sigma = self.ew_sigma[ma_window_max - 1:]
+        
             
     def reset(self, **kwargs):
     
@@ -153,6 +156,7 @@ class Uniswapv3Env(gym.Env):
         
         
         self.count = 0 # iteration counter
+        self.x = self.initial_x # reset x to initial x
         self.cumul_reward = 0
         self.cumul_fee = 0
         
