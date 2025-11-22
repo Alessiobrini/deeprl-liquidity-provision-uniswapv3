@@ -196,6 +196,7 @@ class Uniswapv3Env(gym.Env):
         self.x0 = self.x
         self.y0 = self.y
         self.p0 = pt  # Initial price
+        self.prev_il_penalty = 0  # Track previous IL for delta calculation
         
         ma24 = self.moving_average_24[self.count, 0]
         ma168 = self.moving_average_168[self.count, 0]
@@ -365,13 +366,17 @@ class Uniswapv3Env(gym.Env):
         if W_t != 0:
             il_ratio = (V_t / W_t) - 1  # negative when there's loss
             # Convert IL ratio to dollar-denominated penalty (positive value for loss)
-            il_penalty = -il_ratio * W_t  # positive when IL is negative
+            il_penalty_total = -il_ratio * W_t  # Total IL since start (positive when IL is negative)
+            # Delta IL: change in IL this step (analogous to how LVR is per-step)
+            delta_il = il_penalty_total - self.prev_il_penalty
+            self.prev_il_penalty = il_penalty_total  # Update for next step
         else:
-            il_penalty = 1e+9
+            il_penalty_total = 1e+9
+            delta_il = 1e+9
 
         # Use selected penalty in reward based on reward_type
         if self.reward_type == 'IL':
-            penalty = il_penalty
+            penalty = delta_il  # Use per-step IL change (like LVR)
         else:  # 'LVR'
             penalty = lvr
 
@@ -405,7 +410,8 @@ class Uniswapv3Env(gym.Env):
             'Reward': reward,
             'Fee': fees,
             'LVR': lvr,
-            'IL': il_penalty,  # Track IL for ex-post analysis
+            'IL': il_penalty_total,  # Total IL for ex-post analysis
+            'IL_delta': delta_il,  # Per-step IL change (used in reward)
             'IL_ratio': il_ratio if W_t != 0 else 0,  # IL as ratio
             'ma24': ma24,
             'ma168': ma168,
