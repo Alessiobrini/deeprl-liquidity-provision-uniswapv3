@@ -203,7 +203,7 @@ def train_optimized_ppo(params_template, train_df, test_df, seed, n_trials=10, r
         return reward
 
     # Optimize silently
-    study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
 
     return best_reward, best_model
 
