@@ -1,0 +1,15 @@
+\begin{table}
+\caption{Comparison of PPO (optimized) vs. Baseline Strategies (optimized)}
+\label{tab:baseline_comparison_fair}
+\begin{tabular}{lll}
+\toprule
+Strategy & Mean±Std & P-value \\
+\midrule
+PassiveWidthSweep & $8361.45 \pm 13548.18$ & $0.0003$ \\
+VolProportionalWidth & $13891.26 \pm 8418.98$ & $0.0108$ \\
+ILMinimizer & $10507.09 \pm 10054.21$ & $0.0010$ \\
+ReactiveRecentering & $46805.69 \pm 111345.11$ & $0.1670$ \\
+PPO & $24248.92 \pm 26908.42$ & — \\
+\bottomrule
+\end{tabular}
+\end{table}
