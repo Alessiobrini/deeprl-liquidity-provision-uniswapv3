@@ -8,3 +8,5 @@ torch
 pyyaml
 pandas_datareader
 talib
+python-dotenv
+tqdm
