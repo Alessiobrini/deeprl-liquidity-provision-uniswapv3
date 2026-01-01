@@ -1,0 +1,15 @@
+\begin{table}
+\caption{WBTC/USDC 0.3\% Pool: Comparison of PPO (optimized) vs. Baseline Strategies}
+\label{tab:baseline_comparison_wbtc}
+\begin{tabular}{lll}
+\toprule
+Strategy & Mean±Std & P-value \\
+\midrule
+PassiveWidthSweep & $9929.51 \pm 6533.09$ & $0.0128$ \\
+VolProportionalWidth & $9937.49 \pm 6524.93$ & $0.0126$ \\
+ILMinimizer & $9937.49 \pm 6524.93$ & $0.0126$ \\
+ReactiveRecentering & $4085.84 \pm 3550.13$ & $0.1265$ \\
+PPO & $5932.35 \pm 5473.20$ & — \\
+\bottomrule
+\end{tabular}
+\end{table}
