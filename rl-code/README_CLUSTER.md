@@ -34,3 +34,34 @@ Saved to `output/baseline_comparison_wbtc/` in home directory:
 ```bash
 scancel JOBID
 ```
+
+---
+
+# Transfer Learning Experiments
+
+## Submit Job
+
+```bash
+sbatch slurm_transfer_learning.sh     # Single GPU, 5 seeds, ~24 hours
+```
+
+## Fast Parallel (3 GPUs, 3x faster)
+
+```bash
+sbatch slurm_transfer_parallel.sh     # ~8 hours
+python merge_transfer_results.py      # After completion
+```
+
+## Visualize Results
+
+```bash
+python visualize_transfer_learning.py
+```
+
+## Results
+
+Saved to `output/transfer_learning/`:
+- `transfer_learning_results.csv` - Summary stats (8 scenarios)
+- `transfer_learning_detailed.csv` - Per-seed results
+- `hypothesis_tests.csv` - Statistical tests
+- `*.png` - 4 publication-quality plots
