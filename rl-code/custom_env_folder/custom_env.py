@@ -59,13 +59,26 @@ class Uniswapv3Env(gym.Env):
         gas (float): fixed gas fee
     """
     
-    def __init__(self, 
-                 delta: float, 
+    def __init__(self,
+                 delta: float,
                  action_values: np.array,
                  market_data: pd.DataFrame,
                  x: int,
-                 gas: float):
+                 gas: float,
+                 reward_type: str = 'IL'):
+        """
+        Args:
+            delta: Fee tier of the AMM
+            action_values: Array of possible width values
+            market_data: Price data DataFrame
+            x: Initial quantity of asset X (ETH)
+            gas: Fixed gas fee
+            reward_type: 'IL' for Impermanent Loss or 'LVR' for Loss-Versus-Rebalancing
+        """
         super(Uniswapv3Env, self).__init__()
+
+        # Reward type: 'IL' or 'LVR'
+        self.reward_type = reward_type
         # store array of preorganized data from a pandas dataframe
         prices = market_data.values.astype('float64')
         self.market_data = prices[:,0]
@@ -178,6 +191,12 @@ class Uniswapv3Env(gym.Env):
         # initialize y
         self.y = self.l * (np.sqrt(pt) - np.sqrt(pl))
         # print("Initial y: ", self.y)
+
+        # Store initial holdings for IL calculation
+        self.x0 = self.x
+        self.y0 = self.y
+        self.p0 = pt  # Initial price
+        self.prev_il_penalty = 0  # Track previous IL for delta calculation
         
         ma24 = self.moving_average_24[self.count, 0]
         ma168 = self.moving_average_168[self.count, 0]
@@ -197,6 +216,7 @@ class Uniswapv3Env(gym.Env):
             'Reward': 0,
             'Fee': 0,
             'LVR': 0,
+            'IL': 0,  # Impermanent Loss (0 at start)
             'ma24': ma24,
             'ma168': ma168,
             'Value': self.x * pt + self.y,
@@ -328,21 +348,39 @@ class Uniswapv3Env(gym.Env):
                 p = np.minimum(pt, pu)
                 fees = self._calculate_fee(p, p_prime)
         
-        sigma = self.ew_sigma[self.count]   
-        
-        vp = self.x * pt + self.y
+        sigma = self.ew_sigma[self.count]
+
+        # Current position value
+        V_t = self.x * pt + self.y
+
+        # Calculate LVR (Loss-Versus-Rebalancing)
         ll = self.l * sigma * sigma / 4 * np.sqrt(pt)
-        if vp != 0:
+        if V_t != 0:
             lvr = ll
         else:
             lvr = 1e+9
-            
-        # if self.x == 0 or self.y == 0:
-        #     lvr = 0
-        
-        # print("fee: ", fees, ", LVR: ", lvr)
-        # print("Gas Fee: ", gas_fee, " Fee: ", fees, " LVR: ", lvr)
-        reward = - gas_fee + fees - lvr
+
+        # Calculate Impermanent Loss
+        # IL = V_t / W_t - 1, where W_t is hold value
+        W_t = self.x0 * pt + self.y0  # Value if we just held initial tokens
+        if W_t != 0:
+            il_ratio = (V_t / W_t) - 1  # negative when there's loss
+            # Convert IL ratio to dollar-denominated penalty (positive value for loss)
+            il_penalty_total = -il_ratio * W_t  # Total IL since start (positive when IL is negative)
+            # Delta IL: change in IL this step (analogous to how LVR is per-step)
+            delta_il = il_penalty_total - self.prev_il_penalty
+            self.prev_il_penalty = il_penalty_total  # Update for next step
+        else:
+            il_penalty_total = 1e+9
+            delta_il = 1e+9
+
+        # Use selected penalty in reward based on reward_type
+        if self.reward_type == 'IL':
+            penalty = delta_il  # Use per-step IL change (like LVR)
+        else:  # 'LVR'
+            penalty = lvr
+
+        reward = -gas_fee + fees - penalty
         self.cumul_reward += reward
         self.cumul_fee += fees
         
@@ -372,6 +410,9 @@ class Uniswapv3Env(gym.Env):
             'Reward': reward,
             'Fee': fees,
             'LVR': lvr,
+            'IL': il_penalty_total,  # Total IL for ex-post analysis
+            'IL_delta': delta_il,  # Per-step IL change (used in reward)
+            'IL_ratio': il_ratio if W_t != 0 else 0,  # IL as ratio
             'ma24': ma24,
             'ma168': ma168,
             'Value': self.initial_value

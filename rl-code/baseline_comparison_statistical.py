@@ -33,7 +33,7 @@ from baseline_strategies import (
 from custom_env_folder.custom_env import Uniswapv3Env, CustomMLPFeatureExtractor
 
 
-def evaluate_baseline(baseline, test_env):
+def evaluate_baseline(baseline, test_env, reward_type='IL'):
     """Evaluate a single baseline strategy on test environment."""
     # Create fresh environment copy
     env_copy = Uniswapv3Env(
@@ -42,6 +42,7 @@ def evaluate_baseline(baseline, test_env):
         market_data=pd.DataFrame(test_env.market_data, columns=["price"]),
         x=test_env.initial_x,
         gas=test_env.gas,
+        reward_type=reward_type,
     )
     _, reward = baseline.evaluate(env_copy)
     return reward
@@ -61,7 +62,7 @@ def evaluate_ppo_model(model, env):
     return total_reward
 
 
-def optimize_ppo_trial(trial, params_template, train_df, test_df, seed):
+def optimize_ppo_trial(trial, params_template, train_df, test_df, seed, reward_type='IL'):
     """
     Single Optuna trial for PPO hyperparameter optimization.
 
@@ -71,6 +72,7 @@ def optimize_ppo_trial(trial, params_template, train_df, test_df, seed):
         train_df: Training data
         test_df: Test data
         seed: Random seed
+        reward_type: 'IL' for Impermanent Loss or 'LVR' for Loss-Versus-Rebalancing
 
     Returns:
         tuple: (test_reward, trained_model)
@@ -104,6 +106,7 @@ def optimize_ppo_trial(trial, params_template, train_df, test_df, seed):
         market_data=train_df,
         x=params["x"],
         gas=params["gas_fee"],
+        reward_type=reward_type,
     )
 
     # Create test environment
@@ -113,6 +116,7 @@ def optimize_ppo_trial(trial, params_template, train_df, test_df, seed):
         market_data=test_df,
         x=params["x"],
         gas=params["gas_fee"],
+        reward_type=reward_type,
     )
 
     # Compute dynamic n_steps
@@ -165,7 +169,7 @@ def optimize_ppo_trial(trial, params_template, train_df, test_df, seed):
     return test_reward, model
 
 
-def train_optimized_ppo(params_template, train_df, test_df, seed, n_trials=10):
+def train_optimized_ppo(params_template, train_df, test_df, seed, n_trials=10, reward_type='IL'):
     """
     Train PPO with Optuna hyperparameter optimization.
 
@@ -175,6 +179,7 @@ def train_optimized_ppo(params_template, train_df, test_df, seed, n_trials=10):
         test_df: Test data
         seed: Random seed
         n_trials: Number of Optuna trials (default: 10)
+        reward_type: 'IL' for Impermanent Loss or 'LVR' for Loss-Versus-Rebalancing
 
     Returns:
         tuple: (best_reward, best_model)
@@ -188,7 +193,7 @@ def train_optimized_ppo(params_template, train_df, test_df, seed, n_trials=10):
 
     def objective(trial):
         nonlocal best_model, best_reward
-        reward, model = optimize_ppo_trial(trial, params_template, train_df, test_df, seed)
+        reward, model = optimize_ppo_trial(trial, params_template, train_df, test_df, seed, reward_type)
 
         # Track best model
         if reward > best_reward:
@@ -198,7 +203,7 @@ def train_optimized_ppo(params_template, train_df, test_df, seed, n_trials=10):
         return reward
 
     # Optimize silently
-    study.optimize(objective, n_trials=n_trials, show_progress_bar=False)
+    study.optimize(objective, n_trials=n_trials, show_progress_bar=True)
 
     return best_reward, best_model
 
@@ -290,6 +295,7 @@ def main():
     n_seeds = 5  # Number of random seeds per window
     seeds = [42, 123, 256, 512, 1024][:n_seeds]
     n_trials_ppo = 10  # Number of Optuna trials for PPO hyperparameter optimization
+    reward_type = 'IL'  # 'IL' for Impermanent Loss or 'LVR' for Loss-Versus-Rebalancing
 
     # Define baseline configurations
     baseline_configs = [
@@ -324,6 +330,7 @@ def main():
     window_details = []
 
     print(f"Starting baseline comparison with hyperparameter optimization")
+    print(f"  - Reward type: {reward_type}")
     print(f"  - PPO: {n_trials_ppo} Optuna trials × {n_seeds} seeds per window")
     print(f"  - Baselines: Parameter sweeps (optimized)")
     print(f"  - Total windows to process: {len(windows) - 5}\n")
@@ -349,7 +356,7 @@ def main():
             # Train PPO with Optuna hyperparameter optimization
             print(f"    Optimizing PPO ({n_trials_ppo} trials)...", end=" ", flush=True)
             ppo_reward, _ = train_optimized_ppo(
-                params, train_df, test_df, seed, n_trials=n_trials_ppo
+                params, train_df, test_df, seed, n_trials=n_trials_ppo, reward_type=reward_type
             )
             window_results['PPO'].append(ppo_reward)
             all_results['PPO'].append(ppo_reward)
@@ -365,12 +372,13 @@ def main():
             market_data=test_df,
             x=params["x"],
             gas=params["gas_fee"],
+            reward_type=reward_type,
         )
 
         for name, BaselineClass, kwargs in baseline_configs:
             print(f"    {name}...", end=" ", flush=True)
             baseline = BaselineClass(**kwargs)
-            baseline_reward = evaluate_baseline(baseline, test_env)
+            baseline_reward = evaluate_baseline(baseline, test_env, reward_type=reward_type)
 
             # Add to window results once
             window_results[name].append(baseline_reward)
