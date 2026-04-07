@@ -10,11 +10,18 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings('ignore')
 
+from analysis_utils import compute_strategy_statistics, get_color, get_display_name
+
 sns.set_style('whitegrid')
-sns.set_context('paper', font_scale=1.2)
+sns.set_context('paper', font_scale=1.45)
 plt.rcParams['figure.dpi'] = 300
 plt.rcParams['savefig.dpi'] = 300
 plt.rcParams['font.family'] = 'serif'
+plt.rcParams['axes.titlesize'] = 20
+plt.rcParams['axes.labelsize'] = 17
+plt.rcParams['xtick.labelsize'] = 14
+plt.rcParams['ytick.labelsize'] = 15
+plt.rcParams['legend.fontsize'] = 14
 
 def load_results(pool_name):
     """Load results for a specific pool."""
@@ -24,47 +31,55 @@ def load_results(pool_name):
     if not results_dir.exists():
         raise FileNotFoundError(f"Results directory not found: {results_dir}")
 
-    overall_stats = pd.read_csv(results_dir / "overall_statistics.csv")
     detailed_results = pd.read_csv(results_dir / "detailed_results_all_windows.csv")
+    overall_stats = compute_strategy_statistics(detailed_results)
 
     return overall_stats, detailed_results
 
-def plot_strategy_comparison(weth_stats, wbtc_stats, output_dir):
+def _pool_plot_frame(stats_df):
+    plot_df = stats_df.copy()
+    plot_df["Display"] = plot_df["Strategy"].map(get_display_name)
+    plot_df["Color"] = plot_df["Strategy"].map(get_color)
+    return plot_df.sort_values("Median", ascending=True).reset_index(drop=True)
+
+
+def plot_strategy_comparison(weth_stats, weth_detailed, wbtc_stats, wbtc_detailed, output_dir):
     """
-    Plot 1: Side-by-side comparison of strategy performance on both pools
+    Plot 1: Side-by-side comparison using medians and IQRs.
     """
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15.5, 7.0), sharex=False)
 
-    strategies = weth_stats['Strategy'].tolist()
+    for ax, stats_df, pool_title in [
+        (ax1, _pool_plot_frame(weth_stats), "WETH/USDC 0.05% Pool"),
+        (ax2, _pool_plot_frame(wbtc_stats), "WBTC/USDC 0.3% Pool"),
+    ]:
+        y = np.arange(len(stats_df))
+        ax.hlines(y, stats_df["Q1"], stats_df["Q3"], color=stats_df["Color"], linewidth=5, alpha=0.75)
+        ax.scatter(stats_df["Median"], y, color=stats_df["Color"], s=140, zorder=3, label="Median")
+        ax.scatter(
+            stats_df["Mean"],
+            y,
+            facecolors="white",
+            edgecolors=stats_df["Color"],
+            linewidths=1.5,
+            marker="D",
+            s=85,
+            zorder=4,
+            label="Mean",
+        )
+        ax.axvline(0, color="black", linestyle="--", linewidth=0.8, alpha=0.5)
+        ax.set_yticks(y)
+        ax.set_yticklabels(stats_df["Display"])
+        ax.set_xlabel("Cumulative Reward")
+        ax.set_title(pool_title)
+        ax.grid(axis="x", alpha=0.25)
 
-    # WETH performance
-    means_weth = weth_stats['Mean'].values
-    stds_weth = weth_stats['Std'].values
-    x = np.arange(len(strategies))
-
-    bars1 = ax1.bar(x, means_weth, yerr=stds_weth, capsize=5, alpha=0.7,
-                    color=['#2ecc71' if s == 'PPO' else '#95a5a6' for s in strategies])
-    ax1.set_xlabel('Strategy')
-    ax1.set_ylabel('Mean Reward')
-    ax1.set_title('WETH/USDC 0.05% Pool')
-    ax1.set_xticks(x)
-    ax1.set_xticklabels(strategies, rotation=45, ha='right')
-    ax1.axhline(y=0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
-    ax1.grid(axis='y', alpha=0.3)
-
-    # WBTC performance
-    means_wbtc = wbtc_stats['Mean'].values
-    stds_wbtc = wbtc_stats['Std'].values
-
-    bars2 = ax2.bar(x, means_wbtc, yerr=stds_wbtc, capsize=5, alpha=0.7,
-                    color=['#3498db' if s == 'PPO' else '#95a5a6' for s in strategies])
-    ax2.set_xlabel('Strategy')
-    ax2.set_ylabel('Mean Reward')
-    ax2.set_title('WBTC/USDC 0.3% Pool')
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(strategies, rotation=45, ha='right')
-    ax2.axhline(y=0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
-    ax2.grid(axis='y', alpha=0.3)
+    handles = [
+        plt.Line2D([0], [0], marker='o', color='none', markerfacecolor='#555555', markersize=9, label='Median'),
+        plt.Line2D([0], [0], marker='D', color='none', markerfacecolor='white', markeredgecolor='#555555', markersize=8, label='Mean'),
+        plt.Line2D([0], [0], color='#555555', linewidth=5, label='IQR'),
+    ]
+    ax2.legend(handles=handles, loc='lower right', framealpha=0.95)
 
     plt.tight_layout()
     plt.savefig(output_dir / 'pool_comparison_strategies.png', bbox_inches='tight')
@@ -73,11 +88,11 @@ def plot_strategy_comparison(weth_stats, wbtc_stats, output_dir):
 
 def plot_ppo_advantage(weth_stats, wbtc_stats, output_dir):
     """
-    Plot 2: PPO advantage over baselines (grouped bar chart)
+    Plot 2: PPO percentage advantage over baselines.
     """
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(13.5, 7.0))
 
-    # Calculate PPO advantage (PPO mean - baseline mean)
+    # Calculate PPO advantage as percentage uplift relative to the baseline mean.
     baselines = weth_stats[weth_stats['Strategy'] != 'PPO']['Strategy'].tolist()
 
     ppo_mean_weth = weth_stats[weth_stats['Strategy'] == 'PPO']['Mean'].values[0]
@@ -90,8 +105,8 @@ def plot_ppo_advantage(weth_stats, wbtc_stats, output_dir):
         baseline_mean_weth = weth_stats[weth_stats['Strategy'] == baseline]['Mean'].values[0]
         baseline_mean_wbtc = wbtc_stats[wbtc_stats['Strategy'] == baseline]['Mean'].values[0]
 
-        advantages_weth.append(ppo_mean_weth - baseline_mean_weth)
-        advantages_wbtc.append(ppo_mean_wbtc - baseline_mean_wbtc)
+        advantages_weth.append(((ppo_mean_weth - baseline_mean_weth) / baseline_mean_weth) * 100)
+        advantages_wbtc.append(((ppo_mean_wbtc - baseline_mean_wbtc) / baseline_mean_wbtc) * 100)
 
     x = np.arange(len(baselines))
     width = 0.35
@@ -102,10 +117,10 @@ def plot_ppo_advantage(weth_stats, wbtc_stats, output_dir):
                    color='#3498db', alpha=0.8)
 
     ax.set_xlabel('Baseline Strategy')
-    ax.set_ylabel('PPO Advantage (Mean Reward Difference)')
+    ax.set_ylabel('PPO Advantage (%)')
     ax.set_title('PPO Performance Advantage Over Baselines')
     ax.set_xticks(x)
-    ax.set_xticklabels(baselines, rotation=45, ha='right')
+    ax.set_xticklabels([get_display_name(b) for b in baselines], rotation=20, ha='right')
     ax.axhline(y=0, color='black', linestyle='--', linewidth=0.8)
     ax.legend()
     ax.grid(axis='y', alpha=0.3)
@@ -115,8 +130,8 @@ def plot_ppo_advantage(weth_stats, wbtc_stats, output_dir):
         for bar in bars:
             height = bar.get_height()
             ax.text(bar.get_x() + bar.get_width()/2., height,
-                   f'{height:.0f}',
-                   ha='center', va='bottom' if height > 0 else 'top', fontsize=9)
+                   f'{height:.1f}%',
+                   ha='center', va='bottom' if height > 0 else 'top', fontsize=12)
 
     plt.tight_layout()
     plt.savefig(output_dir / 'ppo_advantage_comparison.png', bbox_inches='tight')
@@ -135,21 +150,21 @@ def plot_statistical_significance(weth_stats, wbtc_stats, output_dir):
         p_values[0, i] = weth_stats[weth_stats['Strategy'] == baseline]['P-value'].values[0]
         p_values[1, i] = wbtc_stats[wbtc_stats['Strategy'] == baseline]['P-value'].values[0]
 
-    fig, ax = plt.subplots(figsize=(10, 4))
+    fig, ax = plt.subplots(figsize=(11.5, 5.2))
 
     # Create heatmap with log scale for better visualization
     im = ax.imshow(p_values, cmap='RdYlGn_r', aspect='auto', vmin=0, vmax=0.1)
 
     ax.set_xticks(np.arange(len(baselines)))
     ax.set_yticks(np.arange(2))
-    ax.set_xticklabels(baselines, rotation=45, ha='right')
+    ax.set_xticklabels([get_display_name(b) for b in baselines], rotation=20, ha='right')
     ax.set_yticklabels(['WETH/USDC 0.05%', 'WBTC/USDC 0.3%'])
 
     # Add p-value text annotations
     for i in range(2):
         for j in range(len(baselines)):
             text = ax.text(j, i, f'{p_values[i, j]:.4f}',
-                          ha="center", va="center", color="black", fontsize=10)
+                          ha="center", va="center", color="black", fontsize=13)
 
     ax.set_title('P-values: PPO vs Baselines (Lower = More Significant)')
 
@@ -166,7 +181,7 @@ def plot_pool_characteristics(output_dir):
     """
     Plot 4: Pool characteristics comparison table as visualization
     """
-    fig, ax = plt.subplots(figsize=(10, 4))
+    fig, ax = plt.subplots(figsize=(11.2, 4.8))
     ax.axis('tight')
     ax.axis('off')
 
@@ -183,7 +198,7 @@ def plot_pool_characteristics(output_dir):
     table = ax.table(cellText=data, cellLoc='center', loc='center',
                     colWidths=[0.25, 0.25, 0.25, 0.25])
     table.auto_set_font_size(False)
-    table.set_fontsize(9)
+    table.set_fontsize(11)
     table.scale(1, 2)
 
     # Style header row
@@ -197,7 +212,7 @@ def plot_pool_characteristics(output_dir):
             if i % 2 == 0:
                 table[(i, j)].set_facecolor('#ecf0f1')
 
-    plt.title('Pool Characteristics Comparison', fontsize=14, weight='bold', pad=20)
+    plt.title('Pool Characteristics Comparison', fontsize=18, weight='bold', pad=20)
     plt.savefig(output_dir / 'pool_characteristics.png', bbox_inches='tight')
     print(f"Saved: {output_dir / 'pool_characteristics.png'}")
     plt.close()
@@ -206,7 +221,7 @@ def plot_reward_distributions(weth_detailed, wbtc_detailed, output_dir):
     """
     Plot 5: Distribution of rewards for PPO across both pools
     """
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15.2, 6.2))
 
     # WETH distribution
     weth_ppo = weth_detailed['PPO'].dropna()
@@ -253,9 +268,15 @@ def create_summary_table(weth_stats, wbtc_stats, output_dir):
             'Strategy': strategy,
             'WETH_Mean': weth_row['Mean'],
             'WETH_Std': weth_row['Std'],
+            'WETH_Median': weth_row['Median'],
+            'WETH_IQR': weth_row['IQR'],
+            'WETH_Positive_Rate': weth_row['Positive_Rate'],
             'WETH_P': weth_row['P-value'],
             'WBTC_Mean': wbtc_row['Mean'],
             'WBTC_Std': wbtc_row['Std'],
+            'WBTC_Median': wbtc_row['Median'],
+            'WBTC_IQR': wbtc_row['IQR'],
+            'WBTC_Positive_Rate': wbtc_row['Positive_Rate'],
             'WBTC_P': wbtc_row['P-value']
         })
 
@@ -271,22 +292,19 @@ def create_summary_table(weth_stats, wbtc_stats, output_dir):
     latex_rows.append("\\centering")
     latex_rows.append("\\caption{Performance Comparison: WETH/USDC 0.05\\% vs WBTC/USDC 0.3\\%}")
     latex_rows.append("\\label{tab:pool_comparison}")
-    latex_rows.append("\\begin{tabular}{lccc}")
+    latex_rows.append("\\begin{tabular}{lcccc}")
     latex_rows.append("\\toprule")
-    latex_rows.append("Strategy & WETH Mean$\\pm$Std & WBTC Mean$\\pm$Std & P-value (WETH, WBTC) \\\\")
+    latex_rows.append("Strategy & WETH Mean$\\pm$Std & WETH Median & WBTC Mean$\\pm$Std & WBTC Median \\\\")
     latex_rows.append("\\midrule")
 
     for _, row in summary_df.iterrows():
-        strategy = row['Strategy']
+        strategy = get_display_name(row['Strategy'])
         weth_str = f"${row['WETH_Mean']:.1f} \\pm {row['WETH_Std']:.1f}$"
         wbtc_str = f"${row['WBTC_Mean']:.1f} \\pm {row['WBTC_Std']:.1f}$"
+        weth_med = f"${row['WETH_Median']:.1f}$"
+        wbtc_med = f"${row['WBTC_Median']:.1f}$"
 
-        if pd.isna(row['WETH_P']):
-            p_str = "—"
-        else:
-            p_str = f"${row['WETH_P']:.4f}$, ${row['WBTC_P']:.4f}$"
-
-        latex_rows.append(f"{strategy} & {weth_str} & {wbtc_str} & {p_str} \\\\")
+        latex_rows.append(f"{strategy} & {weth_str} & {weth_med} & {wbtc_str} & {wbtc_med} \\\\")
 
     latex_rows.append("\\bottomrule")
     latex_rows.append("\\end{tabular}")
@@ -324,7 +342,7 @@ def main():
     print()
 
     # Generate all plots
-    plot_strategy_comparison(weth_stats, wbtc_stats, output_dir)
+    plot_strategy_comparison(weth_stats, weth_detailed, wbtc_stats, wbtc_detailed, output_dir)
     plot_ppo_advantage(weth_stats, wbtc_stats, output_dir)
     plot_statistical_significance(weth_stats, wbtc_stats, output_dir)
     plot_pool_characteristics(output_dir)

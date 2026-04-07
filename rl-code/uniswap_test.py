@@ -23,6 +23,18 @@ warnings.filterwarnings('ignore')
 from stable_baselines3 import PPO
 # from custom_env_folder.custom_env_ewma import Uniswapv3Env, CustomMLPFeatureExtractor
 from custom_env_folder.custom_env import Uniswapv3Env, CustomMLPFeatureExtractor
+
+plt.rcParams.update({
+    "figure.dpi": 300,
+    "savefig.dpi": 300,
+    "font.family": "serif",
+    "font.size": 16,
+    "axes.titlesize": 20,
+    "axes.labelsize": 17,
+    "xtick.labelsize": 14,
+    "ytick.labelsize": 14,
+    "legend.fontsize": 13,
+})
 '''
 This code is used to build and test the reinforcement learning algorithm
 on the imported custom environment for Uniswap V3
@@ -354,7 +366,7 @@ if __name__ == "__main__":
             reward_history = df['Reward']
             cumum_reward = np.cumsum(reward_history)
             values = df['Value']
-            plt.figure(figsize=(12, 6))
+            plt.figure(figsize=(12.5, 6.8))
 
             plt.plot(times, cumum_reward + values - values[0], label='Net Asset Value Change', color='g')
             plt.plot(times, cumum_reward, label='Cumulative Reward', color='r')
@@ -362,6 +374,7 @@ if __name__ == "__main__":
 
             plt.xlabel('Timestep')
             plt.ylabel('Value')
+            plt.title(f'Rolling Window {i}: Cumulative Outcome')
             plt.legend()
 
             output_dir = os.path.join(plot_dir, expname)
@@ -377,13 +390,14 @@ if __name__ == "__main__":
             pl_history = df['Price_Lower']
             pu_history = df['Price_Upper']
 
-            plt.figure(figsize=(12, 6))
+            plt.figure(figsize=(12.5, 6.8))
             plt.plot(times, p_history, label='Price', color='g')
             plt.plot(times, pl_history, label='Price_Lower', color='b')
             plt.plot(times, pu_history, label='Price_Upper', color='r')
 
             plt.xlabel('Timestep')
             plt.ylabel('Price')
+            plt.title(f'Rolling Window {i}: Price Range Path')
             plt.legend()
             
             output_dir = os.path.join(plot_dir, expname)

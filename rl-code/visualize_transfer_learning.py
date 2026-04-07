@@ -12,10 +12,15 @@ warnings.filterwarnings('ignore')
 
 # Set publication-quality style
 sns.set_style('whitegrid')
-sns.set_context('paper', font_scale=1.2)
+sns.set_context('paper', font_scale=1.45)
 plt.rcParams['figure.dpi'] = 300
 plt.rcParams['savefig.dpi'] = 300
 plt.rcParams['font.family'] = 'serif'
+plt.rcParams['axes.titlesize'] = 20
+plt.rcParams['axes.labelsize'] = 17
+plt.rcParams['xtick.labelsize'] = 14
+plt.rcParams['ytick.labelsize'] = 15
+plt.rcParams['legend.fontsize'] = 14
 
 
 def plot_transfer_matrix(summary_df, output_dir):
@@ -31,7 +36,7 @@ def plot_transfer_matrix(summary_df, output_dir):
 
     matrix = np.array(matrix_data).reshape(2, 4)
 
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, ax = plt.subplots(figsize=(13.2, 6.0))
 
     # Create heatmap
     im = ax.imshow(matrix, cmap='RdYlGn', aspect='auto')
@@ -47,7 +52,7 @@ def plot_transfer_matrix(summary_df, output_dir):
     for i in range(2):
         for j in range(4):
             text = ax.text(j, i, f'{matrix[i, j]:.0f}',
-                          ha="center", va="center", color="black", fontsize=11, weight='bold')
+                          ha="center", va="center", color="black", fontsize=14, weight='bold')
 
     ax.set_title('Transfer Learning Performance Matrix\n(Mean Reward Across Seeds)')
 
@@ -63,7 +68,7 @@ def plot_transfer_matrix(summary_df, output_dir):
 
 def plot_same_vs_future(summary_df, output_dir):
     """Compare same-period vs future-period performance."""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15.2, 6.0))
 
     # WETH -> WBTC comparison
     weth_same = summary_df[summary_df['Experiment'] == 'WETH->WBTC_same'].iloc[0]
@@ -86,7 +91,7 @@ def plot_same_vs_future(summary_df, output_dir):
         height = bar.get_height()
         ax1.text(bar.get_x() + bar.get_width()/2., height,
                 f'{height:.0f}',
-                ha='center', va='bottom', fontsize=10, weight='bold')
+                ha='center', va='bottom', fontsize=12, weight='bold')
 
     # WBTC -> WETH comparison
     wbtc_same = summary_df[summary_df['Experiment'] == 'WBTC->WETH_same'].iloc[0]
@@ -108,7 +113,7 @@ def plot_same_vs_future(summary_df, output_dir):
         height = bar.get_height()
         ax2.text(bar.get_x() + bar.get_width()/2., height,
                 f'{height:.0f}',
-                ha='center', va='bottom', fontsize=10, weight='bold')
+                ha='center', va='bottom', fontsize=12, weight='bold')
 
     plt.tight_layout()
     plt.savefig(output_dir / 'same_vs_future_comparison.png', bbox_inches='tight')
@@ -127,7 +132,7 @@ def plot_transfer_efficiency(summary_df, output_dir):
     transfer_eff_weth = (weth_wbtc_same / weth_weth_same) * 100
     transfer_eff_wbtc = (wbtc_weth_same / wbtc_wbtc_same) * 100
 
-    fig, ax = plt.subplots(figsize=(8, 6))
+    fig, ax = plt.subplots(figsize=(9.2, 6.8))
 
     x = [0, 1]
     efficiencies = [transfer_eff_weth, transfer_eff_wbtc]
@@ -147,7 +152,7 @@ def plot_transfer_efficiency(summary_df, output_dir):
         height = bar.get_height()
         ax.text(bar.get_x() + bar.get_width()/2., height,
                 f'{height:.1f}%',
-                ha='center', va='bottom', fontsize=11, weight='bold')
+                ha='center', va='bottom', fontsize=13, weight='bold')
 
     plt.tight_layout()
     plt.savefig(output_dir / 'transfer_efficiency.png', bbox_inches='tight')
@@ -157,7 +162,7 @@ def plot_transfer_efficiency(summary_df, output_dir):
 
 def plot_detailed_results(detailed_df, output_dir):
     """Plot box plots of detailed results across seeds."""
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig, axes = plt.subplots(2, 2, figsize=(15.5, 11.0))
 
     # WETH-based experiments
     weth_data = [
@@ -167,8 +172,8 @@ def plot_detailed_results(detailed_df, output_dir):
         detailed_df['WETH->WBTC_future'].values,
     ]
 
-    bp1 = axes[0, 0].boxplot(weth_data, labels=['WETH\nSame', 'WETH\nFuture', 'WBTC\nSame', 'WBTC\nFuture'])
-    axes[0, 0].set_title('Train on WETH', fontsize=12, weight='bold')
+    bp1 = axes[0, 0].boxplot(weth_data, tick_labels=['WETH\nSame', 'WETH\nFuture', 'WBTC\nSame', 'WBTC\nFuture'])
+    axes[0, 0].set_title('Train on WETH', fontsize=15, weight='bold')
     axes[0, 0].set_ylabel('Reward')
     axes[0, 0].grid(axis='y', alpha=0.3)
 
@@ -180,8 +185,8 @@ def plot_detailed_results(detailed_df, output_dir):
         detailed_df['WBTC->WETH_future'].values,
     ]
 
-    bp2 = axes[0, 1].boxplot(wbtc_data, labels=['WBTC\nSame', 'WBTC\nFuture', 'WETH\nSame', 'WETH\nFuture'])
-    axes[0, 1].set_title('Train on WBTC', fontsize=12, weight='bold')
+    bp2 = axes[0, 1].boxplot(wbtc_data, tick_labels=['WBTC\nSame', 'WBTC\nFuture', 'WETH\nSame', 'WETH\nFuture'])
+    axes[0, 1].set_title('Train on WBTC', fontsize=15, weight='bold')
     axes[0, 1].set_ylabel('Reward')
     axes[0, 1].grid(axis='y', alpha=0.3)
 
@@ -193,8 +198,8 @@ def plot_detailed_results(detailed_df, output_dir):
         detailed_df['WBTC->WETH_same'].values,
     ]
 
-    bp3 = axes[1, 0].boxplot(cross_same, labels=['WETH->\nWETH', 'WETH->\nWBTC', 'WBTC->\nWBTC', 'WBTC->\nWETH'])
-    axes[1, 0].set_title('Same Time Period', fontsize=12, weight='bold')
+    bp3 = axes[1, 0].boxplot(cross_same, tick_labels=['WETH->\nWETH', 'WETH->\nWBTC', 'WBTC->\nWBTC', 'WBTC->\nWETH'])
+    axes[1, 0].set_title('Same Time Period', fontsize=15, weight='bold')
     axes[1, 0].set_ylabel('Reward')
     axes[1, 0].grid(axis='y', alpha=0.3)
 
@@ -206,12 +211,12 @@ def plot_detailed_results(detailed_df, output_dir):
         detailed_df['WBTC->WETH_future'].values,
     ]
 
-    bp4 = axes[1, 1].boxplot(cross_future, labels=['WETH->\nWETH', 'WETH->\nWBTC', 'WBTC->\nWBTC', 'WBTC->\nWETH'])
-    axes[1, 1].set_title('Future Time Period', fontsize=12, weight='bold')
+    bp4 = axes[1, 1].boxplot(cross_future, tick_labels=['WETH->\nWETH', 'WETH->\nWBTC', 'WBTC->\nWBTC', 'WBTC->\nWETH'])
+    axes[1, 1].set_title('Future Time Period', fontsize=15, weight='bold')
     axes[1, 1].set_ylabel('Reward')
     axes[1, 1].grid(axis='y', alpha=0.3)
 
-    plt.suptitle('Transfer Learning Results Distribution Across Seeds', fontsize=14, weight='bold', y=1.00)
+    plt.suptitle('Transfer Learning Results Distribution Across Seeds', fontsize=18, weight='bold', y=1.00)
     plt.tight_layout()
     plt.savefig(output_dir / 'transfer_boxplots.png', bbox_inches='tight')
     print(f"Saved: {output_dir / 'transfer_boxplots.png'}")
