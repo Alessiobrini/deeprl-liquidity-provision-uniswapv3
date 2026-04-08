@@ -9,11 +9,13 @@ import seaborn as sns
 from pathlib import Path
 import os
 
+from analysis_utils import compute_strategy_statistics, get_color, get_display_name
+
 # LaTeX and publication-quality settings
 plt.style.use('seaborn-v0_8-whitegrid')
 
 # Paper formatting parameters
-fsize = 12
+fsize = 16
 params = {
     "text.usetex": False,  # Set True if you have LaTeX installed (MiKTeX)
     "savefig.dpi": 300,
@@ -21,53 +23,24 @@ params = {
     "font.serif": ["Times New Roman", "DejaVu Serif"],
     "font.size": fsize,
     "legend.fontsize": fsize - 1,
-    "xtick.labelsize": fsize - 1,
-    "ytick.labelsize": fsize - 1,
-    "axes.titlesize": fsize + 1,
-    "axes.labelsize": fsize,
+    "xtick.labelsize": fsize - 2,
+    "ytick.labelsize": fsize - 2,
+    "axes.titlesize": fsize + 3,
+    "axes.labelsize": fsize + 1,
     "figure.figsize": (7, 4.5),
 }
 plt.rcParams.update(params)
 
-# Strategy display names (paper-friendly)
-STRATEGY_NAMES = {
-    'PPO': 'PPO',
-    'PassiveWidthSweep': 'Passive Width',
-    'VolProportionalWidth': 'Vol-Proportional',
-    'ILMinimizer': 'IL Minimizer',
-    'ReactiveRecentering': 'Reactive Recentering',
-}
-
-# Consistent color scheme across all visualizations
-STRATEGY_COLORS = {
-    'PPO': '#c0392b',              # Red
-    'PassiveWidthSweep': '#2980b9', # Blue
-    'VolProportionalWidth': '#27ae60', # Green
-    'ILMinimizer': '#8e44ad',       # Purple
-    'ReactiveRecentering': '#f39c12', # Orange
-}
-
-
-def get_display_name(strategy):
-    """Convert strategy variable name to paper-friendly display name."""
-    return STRATEGY_NAMES.get(strategy, strategy)
-
-
-def get_color(strategy):
-    """Get consistent color for a strategy."""
-    return STRATEGY_COLORS.get(strategy, '#34495e')
-
-
 def load_results(output_dir):
     """Load comparison results from CSV files."""
-    overall_stats = pd.read_csv(os.path.join(output_dir, "overall_statistics.csv"))
     detailed_results = pd.read_csv(os.path.join(output_dir, "detailed_results_all_windows.csv"))
+    overall_stats = compute_strategy_statistics(detailed_results)
     return overall_stats, detailed_results
 
 
 def plot_mean_comparison(overall_stats, output_dir):
     """Bar plot comparing mean rewards with error bars (std)."""
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(9.2, 5.8))
 
     strategies = overall_stats['Strategy']
     display_names = [get_display_name(s) for s in strategies]
@@ -80,9 +53,9 @@ def plot_mean_comparison(overall_stats, output_dir):
     bars = ax.bar(range(len(strategies)), means, yerr=stds,
                    capsize=5, alpha=0.85, color=colors, edgecolor='black', linewidth=0.8)
 
-    ax.set_xlabel('Strategy', fontweight='bold')
-    ax.set_ylabel('Cumulative Reward (Mean +/- Std)', fontweight='bold')
-    ax.set_title('Performance Comparison: PPO vs. Baseline Strategies', fontweight='bold')
+    ax.set_xlabel('Strategy')
+    ax.set_ylabel('Mean Cumulative Reward +/- Std')
+    ax.set_title('Performance Comparison: PPO vs. Baseline Strategies')
     ax.set_xticks(range(len(strategies)))
     ax.set_xticklabels(display_names, rotation=20, ha='right')
     ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8, alpha=0.5)
@@ -96,7 +69,7 @@ def plot_mean_comparison(overall_stats, output_dir):
 
 def plot_boxplot_comparison(detailed_results, output_dir):
     """Box plot showing distribution of rewards across windows."""
-    fig, ax = plt.subplots(figsize=(9, 5.5))
+    fig, ax = plt.subplots(figsize=(10.2, 6.5))
 
     # Reshape data for boxplot
     data_to_plot = []
@@ -107,20 +80,54 @@ def plot_boxplot_comparison(detailed_results, output_dir):
         labels.append(get_display_name(col))
         original_names.append(col)
 
-    bp = ax.boxplot(data_to_plot, labels=labels, patch_artist=True,
-                     showfliers=True, notch=True)
+    bp = ax.boxplot(
+        data_to_plot,
+        tick_labels=labels,
+        patch_artist=True,
+        showfliers=True,
+        notch=True,
+        medianprops=dict(color='#2c3e50', linewidth=1.8),
+        whiskerprops=dict(color='#555555'),
+        capprops=dict(color='#555555'),
+    )
 
     # Use consistent colors for all strategies
     for patch, orig_name in zip(bp['boxes'], original_names):
         patch.set_facecolor(get_color(orig_name))
         patch.set_alpha(0.7)
 
-    ax.set_xlabel('Strategy', fontweight='bold')
-    ax.set_ylabel('Cumulative Reward', fontweight='bold')
-    ax.set_title('Reward Distribution Across Test Windows', fontweight='bold')
+    for xpos, values, orig_name in zip(range(1, len(data_to_plot) + 1), data_to_plot, original_names):
+        jitter = np.linspace(-0.09, 0.09, len(values))
+        ax.scatter(
+            xpos + jitter,
+            values,
+            color=get_color(orig_name),
+            edgecolor='white',
+            linewidth=0.4,
+            alpha=0.55,
+            s=34,
+            zorder=3,
+        )
+
+    # Symlog keeps the negative values while making the extreme positive outlier readable.
+    ax.set_yscale('symlog', linthresh=20000)
+    ax.set_xlabel('Strategy')
+    ax.set_ylabel('Cumulative Reward (symlog scale)')
+    ax.set_title('Reward Distribution Across Test Windows')
     ax.set_xticklabels(labels, rotation=20, ha='right')
     ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8, alpha=0.5)
     ax.grid(axis='y', alpha=0.3)
+
+    ax.text(
+        0.99,
+        0.02,
+        'Symlog scale used to keep the Reactive Recentering outlier visible.',
+        transform=ax.transAxes,
+        ha='right',
+        va='bottom',
+        fontsize=11,
+        color='#555555',
+    )
 
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'boxplot_comparison.pdf'), bbox_inches='tight')
@@ -130,7 +137,7 @@ def plot_boxplot_comparison(detailed_results, output_dir):
 
 def plot_pvalue_heatmap(overall_stats, output_dir):
     """Heatmap visualization of p-values."""
-    fig, ax = plt.subplots(figsize=(5, 4))
+    fig, ax = plt.subplots(figsize=(6.2, 5.0))
 
     # Extract strategies and p-values
     mask = overall_stats['Strategy'] != 'PPO'
@@ -153,8 +160,8 @@ def plot_pvalue_heatmap(overall_stats, output_dir):
     ax.set_yticklabels(display_names)
     ax.set_xticks([0])
     ax.set_xticklabels(['PPO'])
-    ax.set_xlabel('Reference', fontweight='bold')
-    ax.set_title('Statistical Significance (p-values)', fontweight='bold')
+    ax.set_xlabel('Reference')
+    ax.set_title('Statistical Significance (p-values)')
 
     # Add colorbar
     cbar = plt.colorbar(im, ax=ax)
@@ -167,7 +174,7 @@ def plot_pvalue_heatmap(overall_stats, output_dir):
             text_color = 'white' if pval < 0.05 else 'black'
             sig_marker = '*' if pval < 0.05 else ''
             ax.text(0, i, f'{pval:.3f}{sig_marker}',
-                   ha='center', va='center', color=text_color, fontweight='bold', fontsize=11)
+                   ha='center', va='center', color=text_color, fontsize=13)
 
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'pvalue_heatmap.pdf'), bbox_inches='tight')
@@ -177,7 +184,7 @@ def plot_pvalue_heatmap(overall_stats, output_dir):
 
 def plot_confidence_intervals(overall_stats, output_dir):
     """Plot with confidence intervals."""
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(9.2, 5.8))
 
     strategies = overall_stats['Strategy']
     display_names = [get_display_name(s) for s in strategies]
@@ -193,12 +200,12 @@ def plot_confidence_intervals(overall_stats, output_dir):
     colors = [get_color(s) for s in strategies]
 
     for i, (x, y, c, yl, yu) in enumerate(zip(range(len(strategies)), means, colors, yerr_lower, yerr_upper)):
-        ax.errorbar(x, y, yerr=[[yl], [yu]], fmt='o', markersize=10, capsize=6, capthick=2,
+        ax.errorbar(x, y, yerr=[[yl], [yu]], fmt='o', markersize=12, capsize=7, capthick=2,
                     linewidth=2, color=c, alpha=0.9)
 
-    ax.set_xlabel('Strategy', fontweight='bold')
-    ax.set_ylabel('Cumulative Reward', fontweight='bold')
-    ax.set_title('Mean Rewards with 95% Bootstrap Confidence Intervals', fontweight='bold')
+    ax.set_xlabel('Strategy')
+    ax.set_ylabel('Cumulative Reward')
+    ax.set_title('Mean Rewards with 95% Bootstrap Confidence Intervals')
     ax.set_xticks(range(len(strategies)))
     ax.set_xticklabels(display_names, rotation=20, ha='right')
     ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8, alpha=0.5)
@@ -236,7 +243,7 @@ def plot_window_progression(output_dir):
             progression_data[strategy]['stds'].append(row['Std'])
 
     # Plot
-    fig, ax = plt.subplots(figsize=(9, 5.5))
+    fig, ax = plt.subplots(figsize=(10.5, 6.3))
 
     for strategy, data in progression_data.items():
         display_name = get_display_name(strategy)
@@ -244,24 +251,24 @@ def plot_window_progression(output_dir):
 
         if strategy == 'PPO':
             linestyle = '-'
-            linewidth = 2.5
+            linewidth = 2.8
             alpha = 1.0
             marker = 'o'
-            markersize = 7
+            markersize = 8
         else:
             linestyle = '--'
-            linewidth = 1.8
+            linewidth = 2.1
             alpha = 0.8
             marker = 's'
-            markersize = 5
+            markersize = 6
 
         ax.plot(data['windows'], data['means'], label=display_name,
                linestyle=linestyle, linewidth=linewidth, alpha=alpha,
                marker=marker, markersize=markersize, color=color)
 
-    ax.set_xlabel('Test Window Index', fontweight='bold')
-    ax.set_ylabel('Mean Cumulative Reward', fontweight='bold')
-    ax.set_title('Strategy Performance Across Rolling Test Windows', fontweight='bold')
+    ax.set_xlabel('Test Window Index')
+    ax.set_ylabel('Mean Cumulative Reward')
+    ax.set_title('Strategy Performance Across Rolling Test Windows')
     ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8, alpha=0.5)
     ax.legend(loc='best', framealpha=0.9)
     ax.grid(alpha=0.3)
@@ -286,6 +293,10 @@ def main():
     overall_stats, detailed_results = load_results(output_dir)
 
     print("Generating publication-quality visualizations...")
+
+    refreshed_stats_path = os.path.join(output_dir, "overall_statistics.csv")
+    overall_stats.to_csv(refreshed_stats_path, index=False)
+    print(f"  Refreshed statistics written to: {refreshed_stats_path}")
 
     print("  1. Mean comparison bar plot...")
     plot_mean_comparison(overall_stats, output_dir)
