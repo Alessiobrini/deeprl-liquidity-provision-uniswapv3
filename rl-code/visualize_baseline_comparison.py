@@ -112,22 +112,11 @@ def plot_boxplot_comparison(detailed_results, output_dir):
     # Symlog keeps the negative values while making the extreme positive outlier readable.
     ax.set_yscale('symlog', linthresh=20000)
     ax.set_xlabel('Strategy')
-    ax.set_ylabel('Cumulative Reward (symlog scale)')
+    ax.set_ylabel('Reward')
     ax.set_title('Reward Distribution Across Test Windows')
     ax.set_xticklabels(labels, rotation=20, ha='right')
     ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8, alpha=0.5)
     ax.grid(axis='y', alpha=0.3)
-
-    ax.text(
-        0.99,
-        0.02,
-        'Symlog scale used to keep the Reactive Recentering outlier visible.',
-        transform=ax.transAxes,
-        ha='right',
-        va='bottom',
-        fontsize=11,
-        color='#555555',
-    )
 
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, 'boxplot_comparison.pdf'), bbox_inches='tight')
