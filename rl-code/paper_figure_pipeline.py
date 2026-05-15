@@ -36,6 +36,18 @@ plt.rcParams.update({
 })
 
 
+def _save_figure_formats(fig: plt.Figure, output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, bbox_inches="tight")
+
+    pdf_path = output_path.with_suffix(".pdf")
+    fig.savefig(pdf_path, bbox_inches="tight")
+
+    final_pdf_dir = output_path.parent / "final_pdfs"
+    final_pdf_dir.mkdir(parents=True, exist_ok=True)
+    fig.savefig(final_pdf_dir / pdf_path.name, bbox_inches="tight")
+
+
 def plot_weth_price_with_test_windows(output_dir: Path, window_size: int = 1500, train_windows: int = 5) -> None:
     df = pd.read_csv(BASE_DIR / "data_price_uni_h_time.csv")
     df["timestamp"] = pd.to_datetime(df["timestamp"])
@@ -73,7 +85,7 @@ def plot_weth_price_with_test_windows(output_dir: Path, window_size: int = 1500,
     )
 
     fig.tight_layout()
-    fig.savefig(output_dir / "weth_price_with_rolling_windows.png", bbox_inches="tight")
+    _save_figure_formats(fig, output_dir / "weth_price_with_rolling_windows.png")
     plt.close(fig)
 
 
@@ -91,7 +103,7 @@ def _draw_image_grid(image_paths, titles, output_path: Path, nrows: int, ncols: 
         ax.axis("off")
 
     fig.tight_layout()
-    fig.savefig(output_path, bbox_inches="tight")
+    _save_figure_formats(fig, output_path)
     plt.close(fig)
 
 
@@ -117,25 +129,20 @@ def export_example_window_panels(output_dir: Path) -> None:
         figsize=(12, 8.2),
     )
 
-    reward_paths = [
-        BASE_DIR / "plot" / "20241122_PPOUniswap_Benchmark" / "plt_rw_0_benchmark_cumulative.png",
-        BASE_DIR / "plot" / "20241122_PPOUniswap" / "plt_rw_0_cumulative.png",
-        BASE_DIR / "plot" / "20241122_PPOUniswap_Benchmark" / "plt_rw_7_benchmark_cumulative.png",
-        BASE_DIR / "plot" / "20241122_PPOUniswap" / "plt_rw_7_cumulative.png",
-    ]
-    reward_titles = [
-        "Window 0: Benchmark cumulative outcome",
-        "Window 0: PPO cumulative outcome",
-        "Window 7: Benchmark cumulative outcome",
-        "Window 7: PPO cumulative outcome",
-    ]
-    _draw_image_grid(
-        reward_paths,
-        reward_titles,
+    # Use two original PPO windows with clear positive runs for the paper-facing
+    # example figure. These preserve the historical experiment outputs rather
+    # than mixing in regenerated trajectories.
+    _draw_vertical_pair(
+        [
+            BASE_DIR / "plot" / "20241122_PPOUniswap" / "plt_rw_0_cumulative.png",
+            BASE_DIR / "plot" / "20241122_PPOUniswap" / "plt_rw_6_cumulative.png",
+        ],
+        [
+            "",
+            "",
+        ],
         output_dir / "example_cumulative_outcomes.png",
-        nrows=2,
-        ncols=2,
-        figsize=(12, 8.2),
+        figsize=(8.4, 10.4),
     )
 
 
@@ -145,11 +152,12 @@ def _draw_vertical_pair(image_paths, titles, output_path: Path, figsize=(7.1, 8.
     for ax, path, title in zip(axes, image_paths, titles):
         image = mpimg.imread(path)
         ax.imshow(image)
-        ax.set_title(title, fontsize=19, pad=10)
+        if title:
+            ax.set_title(title, fontsize=19, pad=10)
         ax.axis("off")
 
     fig.tight_layout()
-    fig.savefig(output_path, bbox_inches="tight")
+    _save_figure_formats(fig, output_path)
     plt.close(fig)
 
 

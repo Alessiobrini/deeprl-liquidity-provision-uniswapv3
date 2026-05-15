@@ -74,16 +74,11 @@ def plot_strategy_comparison(weth_stats, weth_detailed, wbtc_stats, wbtc_detaile
         ax.set_title(pool_title)
         ax.grid(axis="x", alpha=0.25)
 
-    handles = [
-        plt.Line2D([0], [0], marker='o', color='none', markerfacecolor='#555555', markersize=9, label='Median'),
-        plt.Line2D([0], [0], marker='D', color='none', markerfacecolor='white', markeredgecolor='#555555', markersize=8, label='Mean'),
-        plt.Line2D([0], [0], color='#555555', linewidth=5, label='IQR'),
-    ]
-    ax2.legend(handles=handles, loc='lower right', framealpha=0.95)
-
     plt.tight_layout()
     plt.savefig(output_dir / 'pool_comparison_strategies.png', bbox_inches='tight')
+    plt.savefig(output_dir / 'pool_comparison_strategies.pdf', bbox_inches='tight')
     print(f"Saved: {output_dir / 'pool_comparison_strategies.png'}")
+    print(f"Saved: {output_dir / 'pool_comparison_strategies.pdf'}")
     plt.close()
 
 def plot_ppo_advantage(weth_stats, wbtc_stats, output_dir):

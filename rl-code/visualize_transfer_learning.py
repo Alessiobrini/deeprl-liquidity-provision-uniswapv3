@@ -38,8 +38,9 @@ def plot_transfer_matrix(summary_df, output_dir):
 
     fig, ax = plt.subplots(figsize=(13.2, 6.0))
 
-    # Create heatmap
-    im = ax.imshow(matrix, cmap='RdYlGn', aspect='auto')
+    # Use a sequential gradient so color reflects magnitude rather than
+    # implying positive/negative semantics.
+    im = ax.imshow(matrix, cmap='YlGnBu', aspect='auto')
 
     # Set ticks and labels
     ax.set_xticks(np.arange(4))
@@ -48,21 +49,26 @@ def plot_transfer_matrix(summary_df, output_dir):
                         'Diff Asset\nSame Period', 'Diff Asset\nFuture Period'])
     ax.set_yticklabels(['Train on WETH', 'Train on WBTC'])
 
-    # Add value annotations
+    # Add value annotations with contrast-aware text color.
+    norm = plt.Normalize(vmin=np.min(matrix), vmax=np.max(matrix))
     for i in range(2):
         for j in range(4):
+            text_color = 'white' if norm(matrix[i, j]) > 0.58 else 'black'
             text = ax.text(j, i, f'{matrix[i, j]:.0f}',
-                          ha="center", va="center", color="black", fontsize=14, weight='bold')
+                          ha="center", va="center", color=text_color, fontsize=14, weight='bold')
 
     ax.set_title('Transfer Learning Performance Matrix\n(Mean Reward Across Seeds)')
 
     # Colorbar
     cbar = plt.colorbar(im, ax=ax)
     cbar.set_label('Mean Reward', rotation=270, labelpad=15)
+    ax.grid(False)
 
     plt.tight_layout()
     plt.savefig(output_dir / 'transfer_matrix.png', bbox_inches='tight')
+    plt.savefig(output_dir / 'transfer_matrix.pdf', bbox_inches='tight')
     print(f"Saved: {output_dir / 'transfer_matrix.png'}")
+    print(f"Saved: {output_dir / 'transfer_matrix.pdf'}")
     plt.close()
 
 
