@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=transfer_learning
-#SBATCH --partition=compsci-gpu
 #SBATCH --gres=gpu:a6000:1
 #SBATCH --constraint="a6000|a5000"
 #SBATCH --cpus-per-task=8

@@ -8,8 +8,9 @@ bugs, plus one thing that is genuinely new: fees now come from every individual 
 instead of from a formula.
 
 Everything below is verified against `rl-code/` rather than remembered.
-`DIVERGENCES.md` has the full audit with file:line evidence; `SPEC.md` has the
-pre-registration and the current results.
+`DIVERGENCES.md` has the full audit with file:line evidence; `SPEC.md` preserves the
+append-only pre-registration and forensic log. The audited final rerun is now in
+`reports/COMPLETE_EXPERIMENT_RESULTS.md`.
 
 ---
 
@@ -93,7 +94,7 @@ attribution), but it is not what changed the results. Do not oversell it.
 conda env create -f environment.yml
 conda activate deeprl-uniswap
 pip install -e ".[dev]"
-pytest -q                                  # 128 tests, ~2s. If these fail, stop.
+pytest -q                                  # 162 tests, ~3s. If these fail, stop.
 
 unzip dist/uniswap_panel.zip -d data/processed/ # 458MB, sent separately, not in git
 
@@ -334,6 +335,13 @@ rl-code/                   the old code. Reference only. Every number under
 
 ## 8. Open, and worth your time
 
+**Status update, 2026-07-22:** the first two items below are complete. The corrected
+walk-forward collection contains all five algorithms, and inference now averages seeds
+within windows, reports pools separately, uses a seeded circular moving-block bootstrap,
+and applies Holm correction within each pool. See `reports/PI_DIRECTIVE_AUDIT.md` and
+`reports/COMPLETE_EXPERIMENT_RESULTS.md`. The final three sensitivity items remain open
+as stated.
+
 - **The walk-forward re-run under the fixed agent budget.** Every RL number predates it.
   This is the one that matters and it is exactly what `run_algos.sh` does.
 - **Window-level paired statistics.** `aggregate` pools 6 heterogeneous pools into one n
@@ -350,10 +358,6 @@ rl-code/                   the old code. Reference only. Every number under
 
 ## 9. Known, and not fixed
 
-- **`aggregate` pools 6 heterogeneous pools into one n** and never clusters by pool.
-  24 adjacent windows from one pool are not independent; Wilcoxon assumes they are.
-  No per-pool breakdown, so the largest-scale pool dominates the pooled mean. SPEC
-  pre-registers bootstrap CIs; none are computed.
 - **`features="legacy"` breaks if `ma_windows` is not length 2** (it indexes
   `price_mas[0]` and `[1]`, and `n_feat` is hardcoded to 13). Nothing in the CLI passes
   `ma_windows`, so it is a latent trap rather than a live bug.

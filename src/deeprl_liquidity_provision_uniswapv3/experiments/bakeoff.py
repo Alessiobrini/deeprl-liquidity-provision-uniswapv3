@@ -95,7 +95,10 @@ def make_split(n_windows: int, frac_train=0.5, frac_val=0.25) -> Split:
 
 
 def build_env(key: str, w_index: int, widths, schedule: str | None = None,
-              features: str = "legacy", **_ignored):
+              features: str = "legacy", width_units: str = "spacing",
+              execution_widths=None, capital_usd: float = CAPITAL_USD,
+              gas_usd: float = 5.0, swap_fee_frac: float = 0.0,
+              slippage_frac: float = 0.0, **_ignored):
     """Native hourly env. Competitors run unwrapped and decide for themselves when to
     act, which is what makes them distinct strategies. `schedule` is only for an
     agent, which has no timing of its own."""
@@ -109,9 +112,30 @@ def build_env(key: str, w_index: int, widths, schedule: str | None = None,
     # spacing, gas charged in the reward, no swap/slippage, no exit.
     env = UniswapV3Env(seg, swaps=window_swaps(key, seg), fee_model=FEE_MODEL,
                        fee_tier_pct=p.fee_tier_pct, action_widths=np.asarray(widths),
-                       dec0=p.dec0, dec1=p.dec1, capital_usd=CAPITAL_USD, gas_usd=5.0,
-                       warmup=WARMUP, allow_exit=False, features=features)
+                       dec0=p.dec0, dec1=p.dec1, capital_usd=capital_usd, gas_usd=gas_usd,
+                       warmup=WARMUP, allow_exit=False, features=features,
+                       width_units=width_units, execution_widths=execution_widths,
+                       swap_fee_frac=swap_fee_frac, slippage_frac=slippage_frac)
     return env if schedule is None else agent_schedule(env, schedule)
+
+
+def score_details(env, policy) -> dict:
+    """True reward and path diagnostics needed for exact cost counterfactuals."""
+    if hasattr(policy, "reset"):
+        policy.reset()
+    obs, _ = env.reset()
+    inner = env.unwrapped
+    total, done, trunc, acts, notional = 0.0, False, False, [], 0.0
+    info = {}
+    while not (done or trunc):
+        a = int(policy(obs, inner))
+        acts.append(a)
+        obs, r, done, trunc, info = env.step(a)
+        total += r
+        notional += info.get("rebalance_notional", 0.0)
+    return {"reward": float(total), "n_actions": len(set(acts)),
+            "n_rebalances": int(info.get("n_rebalances", 0)),
+            "rebalance_notional": float(notional)}
 
 
 def score(env, policy) -> tuple[float, int]:
@@ -120,17 +144,8 @@ def score(env, policy) -> tuple[float, int]:
     A policy that uses one action is not controlling anything; that is logged on
     every evaluation because it is what the previous protocol hid.
     """
-    if hasattr(policy, "reset"):
-        policy.reset()
-    obs, _ = env.reset()
-    inner = env.unwrapped          # policies read raw state; the schedule wraps it
-    total, done, trunc, acts = 0.0, False, False, []
-    while not (done or trunc):
-        a = int(policy(obs, inner))
-        acts.append(a)
-        obs, r, done, trunc, info = env.step(a)
-        total += r                 # the schedule returns the accrued true reward
-    return total, len(set(acts))
+    d = score_details(env, policy)
+    return d["reward"], d["n_actions"]
 
 
 def select_on_val(key, candidates, widths, split, **kw) -> B.Policy:

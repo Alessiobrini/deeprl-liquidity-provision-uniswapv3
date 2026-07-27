@@ -40,7 +40,7 @@ case "${1:-}" in
     echo "--- code ---"
     rsync $RSYNC_FLAGS \
       --exclude '.git' --exclude '__pycache__' --exclude '*.pyc' \
-      --exclude 'data' --exclude 'outputs' --exclude 'rl-code/output' \
+      --exclude '/data' --exclude '/outputs' --exclude '/rl-code/output' \
       --exclude 'paper' --exclude '.DS_Store' \
       "$LOCAL/" "$REMOTE:$PROJECT/"
     echo "--- panel (only what changed) ---"

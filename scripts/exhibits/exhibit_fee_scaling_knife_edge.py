@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
-R=Path("/Users/alessiobrini/Projects/deeprl-liquidity-provision-uniswapv3"); sys.path.insert(0,str(R))
+R = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(R))
 import numpy as np, pandas as pd
 from src.deeprl_liquidity_provision_uniswapv3.envs.uniswap_v3 import UniswapV3Env
 from src.deeprl_liquidity_provision_uniswapv3.data.pools import POOLS

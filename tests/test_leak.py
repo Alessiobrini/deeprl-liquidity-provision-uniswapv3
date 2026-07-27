@@ -50,14 +50,16 @@ def spy(monkeypatch):
             return 0, None
 
     def fake_train_env(key, widths, split, schedule, features="legacy",
-                       n_windows=None, reward_shaping="none"):
+                       n_windows=None, reward_shaping="none", width_units="spacing",
+                       execution_widths=None):
         seen.append(("fit", sorted(split.train)))
         return object()
 
     def fake_make_agent(algo, env, seed, **kw):
         return DummyModel()
 
-    def fake_score_agent(key, model, widths, w_indices, schedule, features="legacy"):
+    def fake_score_agent(key, model, widths, w_indices, schedule, features="legacy",
+                         width_units="spacing", execution_widths=None):
         seen.append(("score", sorted(w_indices)))
         return np.array([1.0])
 

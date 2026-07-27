@@ -22,6 +22,10 @@ OF=${OF:-1}
 STEPS=${STEPS:-20000}
 SEEDS=${SEEDS:-"42 123"}
 POOLS=${POOLS:-""}          # empty = the six core pools
+WIDTH_UNITS=${WIDTH_UNITS:-spacing}
+WIDTHS_WAS_SET=${WIDTHS+x}
+WIDTHS=${WIDTHS:-"45 50 55"}
+EXECUTION_WIDTHS=${EXECUTION_WIDTHS:-""}
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 # `python` is not on a bare PATH. Activate the env first (`conda activate
@@ -44,7 +48,14 @@ pool_args=""
 # so an aggregate call that omits --steps/--seeds computes a different hash and matches
 # nothing. Keep this one list; do not spell the flags out twice.
 # shellcheck disable=SC2086
-CFG=(--algo "" --steps "$STEPS" --seeds $SEEDS $pool_args)
+# Do not spell out the default widths.  argparse's declared default is an integer
+# list, whereas an explicit `--widths 45 50 55` is parsed as floats; JSON preserves
+# that distinction in the resume hash.  Omitting an unset default therefore keeps the
+# completed paper-compatible collection addressable.  Exploratory treatments set
+# WIDTHS explicitly and retain their own already-frozen hash.
+CFG=(--algo "" --steps "$STEPS" --seeds $SEEDS --width-units "$WIDTH_UNITS" $pool_args)
+[ -n "$WIDTHS_WAS_SET" ] && CFG+=(--widths $WIDTHS)
+[ -n "$EXECUTION_WIDTHS" ] && CFG+=(--execution-widths $EXECUTION_WIDTHS)
 
 for algo in $ALGOS; do
   echo ""

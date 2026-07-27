@@ -23,10 +23,15 @@ dependencies:
   - numpy=2.4.*
   - pandas=3.0.*
   - scipy=1.17.*
+  - matplotlib=3.10.*
   - pyarrow=25.0.*
   - ta-lib=0.6.*
   - pip:
-      - torch==2.12.1
+      # PyPI's Linux wheel now pulls a multi-GB CUDA 13 stack even for CPU jobs.
+      # Force PyTorch's CPU wheel on Linux; macOS's ordinary wheel is already CPU.
+      - --extra-index-url https://download.pytorch.org/whl/cpu
+      - torch==2.12.1+cpu ; platform_system == "Linux"
+      - torch==2.12.1 ; platform_system != "Linux"
       - stable-baselines3==2.9.0
       - gymnasium==1.3.0
       - sb3-contrib==2.9.0

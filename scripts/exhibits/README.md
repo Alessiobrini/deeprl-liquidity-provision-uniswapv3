@@ -15,4 +15,5 @@ regenerated end to end.
 | `exhibit_timing_unpredictable.py` | Pre-window features do not predict a window's realized reward: sign accuracy at or below chance on 5 of 6 pools. |
 
 Run from the repo root with the project interpreter:
-    /Users/alessiobrini/anaconda3/envs/deeprl-uniswap/bin/python scripts/exhibits/<name>.py
+
+    python scripts/exhibits/<name>.py

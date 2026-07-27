@@ -42,7 +42,7 @@ SEEDS = (42, 123, 256)
 
 
 def train_env(key, widths, split, schedule, features="legacy", n_windows=None,
-              reward_shaping="none"):
+              reward_shaping="none", width_units="spacing", execution_widths=None):
     """One long episode over the TRAIN windows. Test is unreachable from here.
 
     Shaping belongs HERE and only here. Evaluation always runs an unshaped env, so
@@ -59,7 +59,8 @@ def train_env(key, widths, split, schedule, features="legacy", n_windows=None,
                        fee_tier_pct=p.fee_tier_pct,
                        action_widths=np.asarray(widths), dec0=p.dec0, dec1=p.dec1,
                        capital_usd=CAPITAL_USD, gas_usd=5.0, warmup=168, allow_exit=False,
-                       features=features, reward_shaping=reward_shaping)
+                       features=features, reward_shaping=reward_shaping,
+                       width_units=width_units, execution_widths=execution_widths)
     return Monitor(agent_schedule(env, schedule))
 
 
@@ -91,10 +92,12 @@ class AgentPolicy:
         return int(a)
 
 
-def score_agent(key, model, widths, w_indices, schedule, features="legacy"):
+def score_agent(key, model, widths, w_indices, schedule, features="legacy",
+                width_units="spacing", execution_widths=None):
     out = []
     for wi in w_indices:
-        env = build_env(key, wi, widths, schedule=schedule, features=features)
+        env = build_env(key, wi, widths, schedule=schedule, features=features,
+                        width_units=width_units, execution_widths=execution_widths)
         if env is None:
             continue
         out.append(score(env, AgentPolicy(model, "agent"))[0])

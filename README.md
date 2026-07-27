@@ -11,7 +11,9 @@ earlier work. Fees are the exception: they now come from every individual swap
 (22.6M of them) rather than from a price-displacement formula.
 
 **New here? Read [`HANDOVER.md`](HANDOVER.md)** — what changed, what did not, and how
-to run it. [`SPEC.md`](SPEC.md) is the pre-registration and the current results;
+to run it. [`SPEC.md`](SPEC.md) is the append-only pre-registration and forensic
+experiment log; its historical result sections include explicitly void reads. The
+audited current results are in [`reports/COMPLETE_EXPERIMENT_RESULTS.md`](reports/COMPLETE_EXPERIMENT_RESULTS.md).
 [`DIVERGENCES.md`](DIVERGENCES.md) is the full audit with file:line evidence.
 
 ---
@@ -22,7 +24,7 @@ to run it. [`SPEC.md`](SPEC.md) is the pre-registration and the current results;
 conda env create -f environment.yml
 conda activate deeprl-uniswap
 pip install -e ".[dev]"           # editable install; no PYTHONPATH needed afterwards
-pytest -q                          # 128 tests, ~2s
+pytest -q                          # 162 tests, ~3s
 ```
 
 TA-Lib needs its C library, which pip cannot install on its own. It comes from
@@ -87,12 +89,41 @@ off as a finished run.
 
 **On a SLURM cluster:** `scripts/slurm/rolling_array.sh` is a thin array wrapper that
 maps `$SLURM_ARRAY_TASK_ID` onto the same `--shard` index, so there is no
-cluster-only code path. Set the paths at the top of that file and of
-`scripts/sync_to_cluster.sh` for your own account before use.
+cluster-only code path. Export `PROJECT_ROOT` and activate the conda environment
+before `sbatch`; set `REMOTE_HOST`, `REMOTE_PROJECT`, and `REMOTE_CONDA` when using
+`scripts/sync_to_cluster.sh`.
 
 This is a **CPU** workload. Measured ~6,100 steps/s on CPU; the nets are far too small
 for a GPU to beat kernel-launch overhead, and the env emits float64, which Apple MPS
 cannot take at all. Request CPU nodes.
+
+### Practitioner-grounded extensions
+
+The retail cost frontier replays deterministic policies at five capital and five gas
+levels, then adds a transparent token-conversion counterfactual:
+
+```bash
+python -m src.deeprl_liquidity_provision_uniswapv3.experiments.retail_frontier \
+  --out outputs/retail_frontier_v1
+python -m src.deeprl_liquidity_provision_uniswapv3.experiments.retail_frontier \
+  --out outputs/retail_frontier_v1 --aggregate \
+  --report-dir outputs/retail_frontier_v1/aggregate_block4
+```
+
+The matched-action-geometry treatment preserves the observable action labels but
+executes the same raw-tick half-widths on both fee tiers:
+
+```bash
+WIDTHS="45 50 55" EXECUTION_WIDTHS="480 540 600" \
+  ./scripts/run_algos.sh \
+  "ppo a2c dqn qrdqn recurrentppo" outputs/action_geometry_v1
+python -m src.deeprl_liquidity_provision_uniswapv3.experiments.action_geometry \
+  --paper outputs/algos_v1 --matched outputs/action_geometry_v1 \
+  --report-dir outputs/action_geometry_v1/aggregate_block4
+```
+
+Both aggregators refuse partial collections. The frozen protocols, practitioner
+motivation, audit status, and final results are under `reports/`.
 
 ## The protocol
 
@@ -120,6 +151,8 @@ src/deeprl_liquidity_provision_uniswapv3/
   policies/   baselines.py (the heuristic strategies)
   experiments/
     rolling.py      THE protocol: walk-forward. Start here.
+    transfer_rolling.py, sensitivity.py, combined.py
+    retail_frontier.py, action_geometry.py, validate_*.py
     bakeoff.py      splits, env construction, scoring
     agent_arm.py    training envs
     leaderboard.py, global_rule.py, transfer_strategies.py
@@ -128,7 +161,8 @@ scripts/
   sync_to_cluster.sh    push / pull / status against a SLURM cluster
   slurm/            array wrappers
   exhibits/         one script per cited claim in SPEC.md
-tests/              128 tests; the protocol and the accounting are both covered
+reports/            frozen extension protocols, audits, results, and figures
+tests/              162 tests; the protocol and the accounting are both covered
 rl-code/            the earlier codebase, kept for reference only. Superseded; do not
                     build on it or on the outputs under rl-code/output/.
 ```

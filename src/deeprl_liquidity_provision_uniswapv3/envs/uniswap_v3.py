@@ -90,6 +90,7 @@ class UniswapV3Env(gym.Env):
         allow_exit: bool = False,
         features: str = "legacy",
         width_units: str = "spacing",
+        execution_widths: np.ndarray | None = None,
         cost_channel: str = "reward",
         shaped_reward: bool = False,      # deprecated alias for reward_shaping="shadow"
         reward_shaping: str = "none",
@@ -113,6 +114,13 @@ class UniswapV3Env(gym.Env):
         self.action_widths = np.asarray(action_widths, dtype=float)
         if (self.action_widths <= 0).any():
             raise ValueError("action_widths must all be > 0; HOLD and EXIT are implicit")
+        self.execution_widths = (None if execution_widths is None
+                                 else np.asarray(execution_widths, dtype=float))
+        if self.execution_widths is not None:
+            if len(self.execution_widths) != len(self.action_widths):
+                raise ValueError("execution_widths must match action_widths length")
+            if (self.execution_widths <= 0).any():
+                raise ValueError("execution_widths must all be positive")
         # allow_exit=False mandates a position: the LP must quote, which is the
         # market-maker's actual constraint. The benchmark is then passive LP, not
         # holding, and the question is whether managing the range mitigates the loss.
@@ -398,7 +406,13 @@ class UniswapV3Env(gym.Env):
         none of the position's IL, and the control variate it is supposed to provide
         cancelled nothing.
         """
-        w = width * self.tick_spacing if self.width_units == "spacing" else width
+        if self.execution_widths is not None:
+            matches = np.flatnonzero(np.isclose(self.action_widths, width))
+            if len(matches) != 1:
+                raise ValueError(f"width {width} does not identify one action")
+            w = self.execution_widths[matches[0]]
+        else:
+            w = width * self.tick_spacing if self.width_units == "spacing" else width
         return max(np.round(w / self.tick_spacing) * self.tick_spacing, self.tick_spacing)
 
     def _set_range(self, i: int, width: float, value_usd: float) -> None:
@@ -525,7 +539,7 @@ class UniswapV3Env(gym.Env):
     def step(self, action):
         i = self.i
         a = int(action)
-        gas_cost = swap_cost = 0.0
+        gas_cost = swap_cost = rebalance_notional = 0.0
 
         if self.allow_exit and a == self._a_exit and self.in_position:
             # Withdraw. Both legs come back, so no swap: gas only.
@@ -546,7 +560,8 @@ class UniswapV3Env(gym.Env):
             # Reaching the ratio a range needs means swapping ~half the position,
             # whether we are entering from tokens or recentring an existing range.
             # Zero by default: the previous paper charged gas alone.
-            swap_cost = 0.5 * v * (self.swap_fee_frac + self.slippage_frac)
+            rebalance_notional = 0.5 * v
+            swap_cost = rebalance_notional * (self.swap_fee_frac + self.slippage_frac)
             debit = (gas_cost + swap_cost) if self.cost_channel == "value" else 0.0
             self._set_range(i, width, max(v - debit, 0.0))
             self.n_rebalances += 1
@@ -615,6 +630,7 @@ class UniswapV3Env(gym.Env):
         self.cum_lvr += lvr
         info = {
             "fee": fee, "d_il": d_il, "lvr": lvr, "gas": gas_cost, "swap_cost": swap_cost,
+            "rebalance_notional": rebalance_notional,
             "in_range": bool(in_range), "range_frac": range_frac, "share": share,
             "in_position": self.in_position,
             "cum_fees": self.cum_fees, "cum_gas": self.cum_gas, "cum_lvr": self.cum_lvr,

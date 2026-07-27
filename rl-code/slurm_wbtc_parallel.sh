@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=wbtc_parallel
-#SBATCH --partition=compsci-gpu
 #SBATCH --gres=gpu:a5000:4
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=128G

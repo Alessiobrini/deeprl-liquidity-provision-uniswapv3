@@ -1,0 +1,176 @@
+<div id="icaif-extension-results">
+  <style>
+    #icaif-extension-results {
+      color: var(--foreground);
+      width: 100%;
+    }
+    #icaif-extension-results .ier-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+      color: var(--muted-foreground);
+    }
+    #icaif-extension-results .ier-key {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    #icaif-extension-results .ier-paper-mark,
+    #icaif-extension-results .ier-matched-mark {
+      display: inline-block;
+      width: 0.7rem;
+      height: 0.7rem;
+      background: var(--viz-series-2);
+    }
+    #icaif-extension-results .ier-paper-mark {
+      border-radius: 50%;
+    }
+    #icaif-extension-results .ier-matched-mark {
+      background: var(--viz-series-1);
+    }
+    #icaif-extension-results .ier-axis {
+      display: grid;
+      grid-template-columns: minmax(8rem, 1.1fr) minmax(11rem, 2fr);
+      gap: 0.75rem;
+      color: var(--muted-foreground);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.35rem;
+    }
+    #icaif-extension-results .ier-axis-scale {
+      display: flex;
+      justify-content: space-between;
+    }
+    #icaif-extension-results .ier-row {
+      display: grid;
+      grid-template-columns: minmax(8rem, 1.1fr) minmax(11rem, 2fr);
+      gap: 0.75rem;
+      align-items: center;
+      padding: 0.65rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    #icaif-extension-results .ier-pool {
+      font-weight: 500;
+    }
+    #icaif-extension-results .ier-track {
+      position: relative;
+      height: 2.6rem;
+    }
+    #icaif-extension-results .ier-baseline {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 1.25rem;
+      height: 1px;
+      background: var(--border);
+    }
+    #icaif-extension-results .ier-connector {
+      position: absolute;
+      top: 1.25rem;
+      height: 2px;
+      background: var(--muted-foreground);
+    }
+    #icaif-extension-results .ier-point {
+      position: absolute;
+      top: 0.87rem;
+      width: 0.75rem;
+      height: 0.75rem;
+      transform: translateX(-50%);
+      background: var(--viz-series-2);
+      border-radius: 50%;
+    }
+    #icaif-extension-results .ier-point.matched {
+      background: var(--viz-series-1);
+      border-radius: 0;
+    }
+    #icaif-extension-results .ier-label {
+      position: absolute;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+    #icaif-extension-results .ier-label.paper {
+      top: -0.15rem;
+    }
+    #icaif-extension-results .ier-label.matched {
+      top: 1.62rem;
+    }
+    @media (max-width: 520px) {
+      #icaif-extension-results .ier-axis {
+        display: none;
+      }
+      #icaif-extension-results .ier-row {
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
+      }
+      #icaif-extension-results .ier-track {
+        min-width: 0;
+      }
+    }
+  </style>
+
+  <div class="ier-legend text-small" aria-label="Legend">
+    <span class="ier-key"><span class="ier-paper-mark" aria-hidden="true"></span>Paper tick geometry</span>
+    <span class="ier-key"><span class="ier-matched-mark" aria-hidden="true"></span>Matched price-band geometry</span>
+    <span>Right is better; all means remain below zero.</span>
+  </div>
+
+  <div class="ier-axis text-small" aria-hidden="true">
+    <span>Pool</span>
+    <span class="ier-axis-scale"><span>−$1,400</span><span>−$700</span><span>$0 per window</span></span>
+  </div>
+
+  <div class="ier-row" aria-label="USDC WETH 0.05 percent. Paper best: Passive, negative 1252 dollars. Matched best: PPO, negative 1096 dollars.">
+    <div class="ier-pool">USDC/WETH 0.05%</div>
+    <div class="ier-track">
+      <span class="ier-baseline"></span><span class="ier-connector" style="left:10.6%;width:11.1%"></span>
+      <span class="ier-point" style="left:10.6%"></span><span class="ier-point matched" style="left:21.7%"></span>
+      <span class="ier-label paper text-small" style="left:10.6%">Passive −$1,252</span>
+      <span class="ier-label matched text-small" style="left:21.7%">PPO −$1,096</span>
+    </div>
+  </div>
+  <div class="ier-row" aria-label="USDC WETH 0.30 percent. Recentre When Out is best under both geometries: negative 319 dollars under paper geometry and negative 459 dollars under matched geometry.">
+    <div class="ier-pool">USDC/WETH 0.30%</div>
+    <div class="ier-track">
+      <span class="ier-baseline"></span><span class="ier-connector" style="left:67.2%;width:10%"></span>
+      <span class="ier-point matched" style="left:67.2%"></span><span class="ier-point" style="left:77.2%"></span>
+      <span class="ier-label matched text-small" style="left:67.2%">Recentre −$459</span>
+      <span class="ier-label paper text-small" style="left:77.2%">Recentre −$319</span>
+    </div>
+  </div>
+  <div class="ier-row" aria-label="WBTC WETH 0.05 percent. Paper best: QR DQN, negative 464 dollars. Matched best: A2C, negative 209 dollars.">
+    <div class="ier-pool">WBTC/WETH 0.05%</div>
+    <div class="ier-track">
+      <span class="ier-baseline"></span><span class="ier-connector" style="left:66.9%;width:18.2%"></span>
+      <span class="ier-point" style="left:66.9%"></span><span class="ier-point matched" style="left:85.1%"></span>
+      <span class="ier-label paper text-small" style="left:66.9%">QR-DQN −$464</span>
+      <span class="ier-label matched text-small" style="left:85.1%">A2C −$209</span>
+    </div>
+  </div>
+  <div class="ier-row" aria-label="WBTC WETH 0.30 percent. Paper best: PPO, negative 87 dollars. Matched best: DQN, negative 186 dollars.">
+    <div class="ier-pool">WBTC/WETH 0.30%</div>
+    <div class="ier-track">
+      <span class="ier-baseline"></span><span class="ier-connector" style="left:86.7%;width:7.1%"></span>
+      <span class="ier-point matched" style="left:86.7%"></span><span class="ier-point" style="left:93.8%"></span>
+      <span class="ier-label matched text-small" style="left:86.7%">DQN −$186</span>
+      <span class="ier-label paper text-small" style="left:93.8%">PPO −$87</span>
+    </div>
+  </div>
+  <div class="ier-row" aria-label="WETH USDT 0.05 percent. Paper best: Recurrent PPO, negative 698 dollars. Matched best: DQN, negative 765 dollars.">
+    <div class="ier-pool">WETH/USDT 0.05%</div>
+    <div class="ier-track">
+      <span class="ier-baseline"></span><span class="ier-connector" style="left:45.4%;width:4.8%"></span>
+      <span class="ier-point matched" style="left:45.4%"></span><span class="ier-point" style="left:50.2%"></span>
+      <span class="ier-label matched text-small" style="left:45.4%">DQN −$765</span>
+      <span class="ier-label paper text-small" style="left:50.2%">RecPPO −$698</span>
+    </div>
+  </div>
+  <div class="ier-row" aria-label="WETH USDT 0.30 percent. Recentre When Out is best under both geometries: negative 111 dollars under paper geometry and negative 220 dollars under matched geometry.">
+    <div class="ier-pool">WETH/USDT 0.30%</div>
+    <div class="ier-track">
+      <span class="ier-baseline"></span><span class="ier-connector" style="left:84.3%;width:7.8%"></span>
+      <span class="ier-point matched" style="left:84.3%"></span><span class="ier-point" style="left:92.1%"></span>
+      <span class="ier-label matched text-small" style="left:84.3%">Recentre −$220</span>
+      <span class="ier-label paper text-small" style="left:92.1%">Recentre −$111</span>
+    </div>
+  </div>
+</div>

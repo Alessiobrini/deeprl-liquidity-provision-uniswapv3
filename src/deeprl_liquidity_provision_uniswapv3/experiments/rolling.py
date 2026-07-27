@@ -56,7 +56,6 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import numpy as np
-from scipy.stats import wilcoxon
 
 from ..agents.registry import make_agent
 from ..data.pools import CORE
@@ -129,6 +128,16 @@ def rolling_steps(n_windows: int, n_train: int = N_TRAIN, n_val: int = N_VAL) ->
     return steps
 
 
+def canonical_widths(widths, *, prefer_float: bool = False) -> list[int | float]:
+    """Make numerically identical CLI widths serialize identically."""
+    if prefer_float:
+        return [float(value) for value in widths]
+    return [
+        int(value) if float(value).is_integer() else float(value)
+        for value in widths
+    ]
+
+
 def config_tag(args) -> str:
     """A short stable hash of everything that changes what a unit COMPUTES.
 
@@ -140,9 +149,26 @@ def config_tag(args) -> str:
     table without noticing. The config now keys the filename, so a changed config is
     a different unit rather than a silent no-op.
     """
-    payload = json.dumps({k: v for k, v in sorted(vars(args).items())
-                          if k in ("algo", "schedule", "widths", "shaping", "steps",
-                                   "seeds", "paper_extractor")}, default=str)
+    values = {k: v for k, v in sorted(vars(args).items())
+              if k in ("algo", "schedule", "widths", "shaping", "steps",
+                       "seeds", "paper_extractor")}
+    # argparse returns explicit --widths as floats but the default as ints. Without
+    # normalization, `--widths 45 50 55` silently looked like a different collection.
+    # The preferred representation preserves both completed collections' resume keys:
+    # integer widths for primary runs, floats for matched-geometry runs.
+    execution_widths = getattr(args, "execution_widths", None)
+    values["widths"] = canonical_widths(
+        values["widths"], prefer_float=execution_widths is not None
+    )
+    # Preserve the resume keys of the completed paper-convention collection. The new
+    # field enters the key only for the non-default exploratory treatment.
+    if getattr(args, "width_units", "spacing") != "spacing":
+        values["width_units"] = args.width_units
+    if execution_widths is not None:
+        values["execution_widths"] = canonical_widths(
+            execution_widths, prefer_float=True
+        )
+    payload = json.dumps(values, default=str)
     return hashlib.sha1(payload.encode()).hexdigest()[:8]
 
 
@@ -185,17 +211,20 @@ def provenance(args) -> dict:
 
 # --------------------------------------------------------------- the two arms
 
-def heuristic_step(key, split, widths, candidates):
+def heuristic_step(key, split, widths, candidates, width_units="spacing",
+                   execution_widths=None):
     """Select on this step's validation window, score once on its test window."""
     best, best_v = None, -np.inf
     for pol in candidates:
-        e = build_env(key, split.val[0], widths)
+        e = build_env(key, split.val[0], widths, width_units=width_units,
+                      execution_widths=execution_widths)
         if e is None:
             continue
         v = score(e, pol)[0]
         if v > best_v:
             best, best_v = pol, v
-    e = build_env(key, split.test[0], widths)
+    e = build_env(key, split.test[0], widths, width_units=width_units,
+                  execution_widths=execution_widths)
     if e is None or best is None:
         return None
     r, n_act = score(e, best)
@@ -203,7 +232,7 @@ def heuristic_step(key, split, widths, candidates):
 
 
 def agent_step(key, split, widths, algo, schedule, steps, seeds, shaping,
-               paper_extractor=False):
+               paper_extractor=False, width_units="spacing", execution_widths=None):
     """Select a config on validation, refit on train+val, score once on test.
 
     Two defects this replaces, both of which rigged the comparison AGAINST the agent
@@ -232,10 +261,13 @@ def agent_step(key, split, widths, algo, schedule, steps, seeds, shaping,
     for cfg in grid_for(algo):
         vals = []
         for s in seeds:
-            env = train_env(key, widths, split, schedule, reward_shaping=shaping)
+            env = train_env(key, widths, split, schedule, reward_shaping=shaping,
+                            width_units=width_units, execution_widths=execution_widths)
             m = make_agent(algo, env, seed=s, paper_extractor=paper_extractor, **cfg)
             m.learn(total_timesteps=steps)
-            vals.append(float(score_agent(key, m, widths, split.val, schedule).mean()))
+            vals.append(float(score_agent(key, m, widths, split.val, schedule,
+                                          width_units=width_units,
+                                          execution_widths=execution_widths).mean()))
         v = float(np.mean(vals))
         if v > best_v:
             best_cfg, best_v = cfg, v
@@ -248,14 +280,18 @@ def agent_step(key, split, widths, algo, schedule, steps, seeds, shaping,
     fit = Split(train=split.train + split.val, val=[], test=split.test)
     models = []
     for s in seeds:
-        env = train_env(key, widths, fit, schedule, reward_shaping=shaping)
+        env = train_env(key, widths, fit, schedule, reward_shaping=shaping,
+                        width_units=width_units, execution_widths=execution_widths)
         m = make_agent(algo, env, seed=s, paper_extractor=paper_extractor, **best_cfg)
         m.learn(total_timesteps=steps)
         models.append(m)
     # Seeds are averaged on TEST, not argmaxed: picking the best seed by test reward
     # is the previous paper's max-over-trials leak wearing a different hat.
-    per_seed = [score_agent(key, m, widths, split.test, schedule) for m in models]
-    e = build_env(key, split.test[0], widths, schedule=schedule)
+    per_seed = [score_agent(key, m, widths, split.test, schedule,
+                            width_units=width_units,
+                            execution_widths=execution_widths) for m in models]
+    e = build_env(key, split.test[0], widths, schedule=schedule,
+                  width_units=width_units, execution_widths=execution_widths)
     n_act = score(e, AgentPolicy(models[0], "a"))[1] if e is not None else 0
     return dict(test=float(np.mean([p.mean() for p in per_seed])),
                 val=best_v, name=f"{algo}/{shaping}/{best_cfg}", n_actions=n_act)
@@ -266,12 +302,14 @@ def run_unit(unit: Unit, args) -> dict:
     split = rolling_steps(len(load_panel(unit.pool)) // WINDOW)[unit.step]
     arms = {}
     for name, build in HEURISTICS.items():
-        r = heuristic_step(unit.pool, split, args.widths, build(args.widths))
+        r = heuristic_step(unit.pool, split, args.widths, build(args.widths),
+                           args.width_units, args.execution_widths)
         if r:
             arms[name] = r
     arms[args.algo.upper()] = agent_step(unit.pool, split, args.widths, args.algo,
                                          args.schedule, args.steps, args.seeds,
-                                         args.shaping, args.paper_extractor)
+                                         args.shaping, args.paper_extractor,
+                                         args.width_units, args.execution_widths)
     return {"unit": asdict(unit), "split": {"train": split.train, "val": split.val,
                                             "test": split.test},
             "arms": arms, "provenance": provenance(args)}
@@ -279,7 +317,95 @@ def run_unit(unit: Unit, args) -> dict:
 
 # ---------------------------------------------------------------- aggregation
 
-def aggregate(out_dir: Path, expected: list[Unit]) -> None:
+def _block_bootstrap_mean(x: np.ndarray, rng: np.random.Generator,
+                          n_boot: int, block_length: int) -> np.ndarray:
+    """Circular moving-block bootstrap means, preserving adjacent-window dependence."""
+    n = len(x)
+    block_length = min(max(1, block_length), n)
+    n_blocks = int(np.ceil(n / block_length))
+    starts = rng.integers(0, n, size=(n_boot, n_blocks))
+    offsets = np.arange(block_length)
+    idx = (starts[..., None] + offsets) % n
+    return x[idx.reshape(n_boot, -1)[:, :n]].mean(axis=1)
+
+
+def paired_block_inference(x: np.ndarray, rng: np.random.Generator,
+                           n_boot: int, block_length: int) -> tuple[float, float, float]:
+    """95% CI and two-sided null p-value for a mean paired window difference.
+
+    Resampling contiguous windows avoids pretending adjacent walk-forward tests are
+    independent.  The null distribution is obtained by centering the paired
+    differences at zero before applying the same moving-block bootstrap.
+    """
+    boot = _block_bootstrap_mean(x, rng, n_boot, block_length)
+    lo, hi = np.quantile(boot, [0.025, 0.975])
+    null = _block_bootstrap_mean(x - x.mean(), rng, n_boot, block_length)
+    p = (1 + np.count_nonzero(np.abs(null) >= abs(x.mean()))) / (n_boot + 1)
+    return float(lo), float(hi), float(p)
+
+
+def holm_adjust(pvalues: list[float]) -> list[float]:
+    """Holm step-down family-wise correction, returned in original order."""
+    if not pvalues:
+        return []
+    order = np.argsort(pvalues)
+    ranked = np.asarray(pvalues)[order]
+    adjusted = np.maximum.accumulate(ranked * np.arange(len(ranked), 0, -1))
+    out = np.empty(len(ranked))
+    out[order] = np.minimum(adjusted, 1.0)
+    return out.tolist()
+
+
+def _report_pool(pool: str, rows: list[dict], expected_n: int, bootstrap_seed: int,
+                 bootstrap_samples: int, bootstrap_block: int) -> None:
+    """Exploratory test-selected ranking; use combined.py for valid comparisons."""
+    res, acts = {}, {}
+    for r in sorted(rows, key=lambda z: z["unit"]["step"]):
+        for arm, d in r["arms"].items():
+            res.setdefault(arm, []).append(d["test"])
+            acts.setdefault(arm, []).append(d["n_actions"])
+    res = {k: np.asarray(v, dtype=float) for k, v in res.items()}
+    order = sorted(res, key=lambda k: -res[k].mean())
+    passive, champ = res["Passive"].mean(), order[0]
+    partial = len(rows) != expected_n
+    status = "PARTIAL — NOT A FINAL RESULT" if partial else "COMPLETE"
+
+    print("\nEXPLORATORY DIAGNOSTIC — DO NOT QUOTE THESE P-VALUES")
+    print("The reference strategy below is selected as the best arm on these same "
+          "test windows, so its p-values are optimistic. Use combined.py for the "
+          "prespecified, reportable comparisons.")
+    print(f"POOL {pool} — {status} — {len(rows)}/{expected_n} windows")
+    print(f"{'strategy':<24} {'TEST':>9} {'mitigation':>11} {'vs best':>9} {'actions':>8}")
+    print("-" * 66)
+    for k in order:
+        print(f"{k:<24} {res[k].mean():>9,.0f} {res[k].mean()-passive:>+11,.0f} "
+              f"{res[k].mean()-res[champ].mean():>+9,.0f} {np.mean(acts[k]):>8.1f}")
+
+    # A work-unit JSON already averages RL seeds within its window. Never unpack seeds
+    # into observations: one market trajectory is one row, regardless of seed count.
+    rng = np.random.default_rng(bootstrap_seed)
+    tests = []
+    for k in order[1:]:
+        d = res[k] - res[champ]
+        lo, hi, p = paired_block_inference(
+            d, rng, bootstrap_samples, bootstrap_block)
+        tests.append([k, d.mean(), (d > 0).mean(), lo, hi, p])
+    adjusted = holm_adjust([t[-1] for t in tests])
+
+    print(f"\nExploratory paired comparisons against test-selected {champ}; "
+          f"one row per seed-averaged window (n={len(rows)}).")
+    print(f"Circular moving-block bootstrap: block={min(bootstrap_block, len(rows))}, "
+          f"resamples={bootstrap_samples:,}, seed={bootstrap_seed}; Holm within pool.")
+    print(f"{'strategy':<24} {'diff':>9} {'wins':>6} {'95% block CI':>23} "
+          f"{'p raw':>9} {'p Holm':>9} {'sig':>5}")
+    for (nm, dm, wins, lo, hi, p), ph in zip(tests, adjusted):
+        ci = f"[{lo:+,.0f}, {hi:+,.0f}]"
+        print(f"{nm:<24} {dm:>+9,.0f} {wins:>5.0%} {ci:>23} "
+              f"{p:>9.4f} {ph:>9.4f} {'*' if ph < 0.05 else '':>5}")
+
+
+def aggregate(out_dir: Path, expected: list[Unit], bootstrap_seed: int = 20260716,
+              bootstrap_samples: int = 10_000, bootstrap_block: int = 4) -> None:
     # Filter by the config tag. Keying the FILENAME by config stopped the silent skip,
     # but this globbed every json in the directory and dropped the tag from the `done`
     # key, so a directory holding several algorithms (which is the whole point of
@@ -296,12 +422,6 @@ def aggregate(out_dir: Path, expected: list[Unit]) -> None:
     done = {(r["unit"]["pool"], r["unit"]["step"]) for r in rows}
     missing = [u for u in expected if (u.pool, u.step) not in done]
 
-    res, acts = {}, {}
-    for r in rows:
-        for arm, d in r["arms"].items():
-            res.setdefault(arm, []).append(d["test"])
-            acts.setdefault(arm, []).append(d["n_actions"])
-    res = {k: np.asarray(v) for k, v in res.items()}
     n = len(rows)
 
     print(f"\nWALK-FORWARD TEST. Every window tested once by a policy fit only on the "
@@ -310,30 +430,24 @@ def aggregate(out_dir: Path, expected: list[Unit]) -> None:
           + (f"; MISSING {len(missing)}: {[u.name for u in missing[:6]]}" if missing else ""))
     if missing:
         # A silent partial aggregate reads as a finished run. Say what is absent.
-        print("  ^ the table below is a PARTIAL result and is not comparable to a full run")
+        print("  ^ ALL output below is exploratory and not comparable to a complete run")
 
-    order = sorted(res, key=lambda k: -res[k].mean())
-    passive = res["Passive"].mean()
-    champ = order[0]
-    print(f"\n{'strategy':<24} {'TEST':>9} {'mitigation':>11} {'vs best':>9} {'actions':>8}")
-    print("-" * 66)
-    for k in order:
-        print(f"{k:<24} {res[k].mean():>9,.0f} {res[k].mean()-passive:>+11,.0f} "
-              f"{res[k].mean()-res[champ].mean():>+9,.0f} {np.mean(acts[k]):>8.1f}")
-
-    print(f"\nPaired against {champ}, by window (n={n}), Holm-corrected:")
-    tests = []
-    for k in order[1:]:
-        d = res[k] - res[champ]
-        if np.allclose(d, 0):
+    by_pool = {}
+    expected_by_pool = {}
+    for r in rows:
+        by_pool.setdefault(r["unit"]["pool"], []).append(r)
+    for u in expected:
+        expected_by_pool[u.pool] = expected_by_pool.get(u.pool, 0) + 1
+    for pool in sorted(expected_by_pool):
+        pool_rows = by_pool.get(pool, [])
+        if not pool_rows:
+            print(f"\nPOOL {pool} — PARTIAL — 0/{expected_by_pool[pool]} windows; no table")
             continue
-        tests.append((k, d.mean(), (d > 0).mean(), wilcoxon(d)[1]))
-    tests.sort(key=lambda t: t[3])
-    m = len(tests)
-    print(f"{'strategy':<24} {'diff':>9} {'wins':>6} {'p raw':>9} {'p Holm':>9} {'sig':>5}")
-    for i, (nm, dm, w, p) in enumerate(tests):
-        ph = min(1.0, p * (m - i))
-        print(f"{nm:<24} {dm:>+9,.0f} {w:>5.0%} {p:>9.4f} {ph:>9.4f} {'*' if ph < 0.05 else '':>5}")
+        _report_pool(pool, pool_rows, expected_by_pool[pool], bootstrap_seed,
+                     bootstrap_samples, bootstrap_block)
+
+    print("\nNo pooled significance test is reported: pools are heterogeneous and "
+          "adjacent windows are serially dependent.")
 
 
 def main():
@@ -341,6 +455,10 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--pools", nargs="*", default=CORE)
     ap.add_argument("--widths", nargs="*", type=float, default=[45, 50, 55])
+    ap.add_argument("--width-units", choices=["spacing", "ticks"], default="spacing",
+                    help="interpret widths as tick-spacing multiples (paper) or raw ticks")
+    ap.add_argument("--execution-widths", nargs="*", type=float, default=None,
+                    help="optional raw-tick execution widths, preserving action labels")
     ap.add_argument("--algo", default="ppo")
     ap.add_argument("--schedule", default="event_driven")
     ap.add_argument("--steps", type=int, default=20_000)
@@ -352,12 +470,17 @@ def main():
     ap.add_argument("--shard", type=int, default=0, help="this shard's index")
     ap.add_argument("--of", type=int, default=1, help="total shards")
     ap.add_argument("--aggregate", action="store_true", help="read results and report")
+    ap.add_argument("--bootstrap-seed", type=int, default=20260716)
+    ap.add_argument("--bootstrap-samples", type=int, default=10_000)
+    ap.add_argument("--bootstrap-block", type=int, default=4,
+                    help="contiguous windows per circular bootstrap block")
     ap.add_argument("--force", action="store_true", help="recompute units already on disk")
     args = ap.parse_args()
 
     units = work_units(args.pools, config_tag(args))
     if args.aggregate:
-        aggregate(args.out, units)
+        aggregate(args.out, units, args.bootstrap_seed, args.bootstrap_samples,
+                  args.bootstrap_block)
         return
 
     assert 0 <= args.shard < args.of, f"shard {args.shard} out of range for --of {args.of}"
@@ -380,7 +503,8 @@ def main():
         print(f"  {u.name}  " + "  ".join(f"{k[:9]} {v['test']:>7,.0f}" for k, v in a.items()))
 
     if args.shard == 0 and args.of == 1:
-        aggregate(args.out, units)
+        aggregate(args.out, units, args.bootstrap_seed, args.bootstrap_samples,
+                  args.bootstrap_block)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
-R=Path("/Users/alessiobrini/Projects/deeprl-liquidity-provision-uniswapv3"); sys.path.insert(0,str(R))
+R = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(R))
 import numpy as np
 from src.deeprl_liquidity_provision_uniswapv3.experiments.bakeoff import build_env, score, make_split
 from src.deeprl_liquidity_provision_uniswapv3.policies import baselines as B

@@ -1,5 +1,12 @@
 # Active liquidity provision in Uniswap v3
 
+> **Authoritative-results update, 2026-07-22.** This file is an append-only
+> pre-registration and forensic experiment log; it deliberately preserves void and
+> retracted reads below. The completed post-fix collections, independent hashes, and
+> dependence-aware results are in `reports/COMPLETE_EXPERIMENT_RESULTS.md` and
+> `outputs/final_audit.json`. Do not cite a numerical result from this file merely
+> because it appears later than another section.
+
 ## Research objective
 
 Given that a liquidity provider must quote, does active range management reduce the
