@@ -6,6 +6,11 @@ above 1.5pt, all pages visually checked.
 
 ## Must do before submitting
 
+0. **Set `\Comments=0`** (line 46 of `icaif_main.tex`). It is currently `1` so the five
+   blue `[AB: ...]` queries for Arjun render. At `1` the paper is 9 pages; at `0` the
+   notes vanish and it is a clean 8 with zero overfull boxes. Answer the five queries
+   first, then delete the `\alessio{...}` calls and flip the flag.
+   See `OPEN_ITEMS_AFTER_THIRD_REVIEW.md` for what each one asks.
 1. **Anonymize.** ICAIF 2026 is double-blind and the CFP asks for the `anonymous`
    parameter. Change line 16 to:
    `\documentclass[sigconf,review,anonymous]{acmart}`
