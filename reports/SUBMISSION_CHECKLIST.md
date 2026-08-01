@@ -1,28 +1,24 @@
 # ICAIF 2026 submission checklist (as of 2026-08-01)
 
-Paper state: `paper/RL_for_liquidity_provisioning/icaif_main.tex`, commit `d99dbf1`.
+Paper state: `paper/RL_for_liquidity_provisioning/icaif_main.tex`, commit `8c095f5`.
 Compiles clean at **8 pages**, zero undefined references or citations, **zero overfull
 boxes**, all pages visually checked. `\Comments=0` and every draft comment macro is
 deleted, so no query text remains in the source.
 
-The state-contingency claim was retracted on 2026-08-01. The oracle disagreement
-statistic is uncalibrated against a no-information null, so the paper now reports the
-oracle comparison as descriptive. See the correction at the top of
+The state-contingency claim was retracted on 2026-08-01. The disagreement statistic is
+uncalibrated against a no-information null, so the paper reports the comparison as
+descriptive. The quantity is named the hindsight best action throughout, no longer the
+oracle, since that name implied a correctness the retraction denies. See the correction at the top of
 `STATE_HEADROOM_RESULTS.md`. Every deployable result is unchanged.
 
 ## Must do before submitting
 
-1. **Anonymize.** ICAIF 2026 is double-blind and the CFP asks for the `anonymous`
-   parameter. Change line 16 to:
-   `\documentclass[sigconf,review,anonymous]{acmart}`
-   This was test-compiled and still fits in 8 pages. It replaces the author block with
-   "Anonymous Author(s)" and automatically suppresses the `acks` block, so the DAREC
-   funder and the donor name disappear without editing them. Dropping `nonacm` at the
-   same time prints the ACM reference block, so fill in `\acmConference` (line 53) if
-   you drop it.
-2. **Code link.** The footnote on the first page promises "an anonymized repository for
-   peer review" but carries no URL. Either add an anonymous4open / blinded Zenodo link
-   or drop the sentence. 39% of ICAIF papers ship replication code and reviewers look.
+1. ~~**Anonymize.**~~ Done. Line 16 carries `anonymous`, the title block prints
+   "Anonymous Author(s)", and the `acks` block is suppressed. `nonacm` is still set, so
+   drop it and fill in `\acmConference` (line 56) only at camera-ready.
+2. ~~**Code link.**~~ Decided: no URL while the submission is blind. The note promises
+   release and explains the omission, and it now hangs off the first sentence of the
+   Results rather than a page-1 contribution bullet. Add the real link at camera-ready.
 3. ~~**Push the state-contingency code.**~~ Done. PR #10 merged 2026-08-01, adding
    `experiments/state_headroom.py`, `experiments/normalized_ppo.py`, their validators,
    three test files, and the frozen `STATE_HEADROOM_PROTOCOL.md`. All 179 tests pass.
