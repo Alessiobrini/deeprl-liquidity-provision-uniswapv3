@@ -15,7 +15,46 @@ Finalized: 2026-07-28. The prospective design was frozen in
   moving-block bootstrap and the prospectively declared four-contrast H3 Holm family
   within each pool.
 
-## Main result
+## Correction, 2026-08-01: the oracle disagreement statistic is uncalibrated
+
+The "substantial local state-contingent opportunity" reading below is withdrawn.
+The action-disagreement fraction has no power to detect state contingency, because
+it is not calibrated against a no-information null.
+
+With four actions and exchangeable action values with no ties, the ex-post argmax is
+uniform over the four, so it differs from any pre-specified fixed action with
+probability 3/4. The null disagreement rate is therefore **75%**. Every observed
+point estimate (67.0% to 73.2%) lies *below* it, and every 95% block-bootstrap
+confidence limit in the table below **contains 75%**:
+
+| Pool | 168h CI | contains the 75% null |
+|---|---:|:--:|
+| USDC/WETH 0.05% | (63.4%, 77.9%) | yes |
+| USDC/WETH 0.30% | (64.2%, 81.7%) | yes |
+| WBTC/WETH 0.05% | (58.3%, 79.1%) | yes |
+| WBTC/WETH 0.30% | (53.4%, 80.1%) | yes |
+| WETH/USDT 0.05% | (59.1%, 77.1%) | yes |
+| WETH/USDT 0.30% | (64.4%, 80.8%) | yes |
+
+The dollar headroom carries the same defect. The expected maximum of four noisy
+realized rewards exceeds any fixed one by selection alone, so a positive
+oracle-minus-fixed gap at `p_Holm=0.0004` is what a zero-signal process produces.
+Holm correction adjusts for multiplicity across contrasts, not for the oracle's
+within-state maximization bias, so those p-values do not test whether action
+identity predicts reward.
+
+What survives unchanged: every deployable result. The decision stump gives no
+reliable held-out gain over the fixed width in any pool, no stump contrast survives
+Holm correction, the learned policies each execute one action in the logged
+first-seed trace, and reward normalization does not restore action diversity. The
+protocol's 10% threshold still functions as the operational trigger that opened the
+follow-up. It is not evidence of headroom.
+
+Calibrating the diagnostic would need the disagreement rate and the dollar gap
+compared against a permutation or exchangeable null rather than against zero. That
+is not run here. The paper reports the oracle comparison as descriptive.
+
+## Main result (superseded, see the correction above)
 
 There is substantial local state-contingent opportunity, but the deployable
 reward-maximizing decision stump does not capture it reliably.
@@ -60,6 +99,11 @@ This distinguishes the two claims the earlier action-diversity result could not:
 
 The result therefore rejects "the agents collapse because one action is almost
 always optimal." It does not establish that the oracle choices are predictable.
+
+> **Superseded, 2026-08-01.** Point 1 and the rejection stated here do not hold.
+> The disagreement rate is indistinguishable from the 75% no-information null in
+> every pool, so it cannot reject a constant action being optimal. Point 2 stands.
+> See the correction at the top of this file.
 
 ## Learned-policy comparison
 
