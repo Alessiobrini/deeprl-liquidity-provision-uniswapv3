@@ -1,16 +1,17 @@
-# ICAIF 2026 submission checklist (as of 2026-07-31)
+# ICAIF 2026 submission checklist (as of 2026-08-01)
 
-Paper state: `paper/RL_for_liquidity_provisioning/icaif_main.tex`, commit `f049420`.
-Compiles clean at **8 pages**, zero undefined references or citations, no overfull box
-above 1.5pt, all pages visually checked.
+Paper state: `paper/RL_for_liquidity_provisioning/icaif_main.tex`, commit `d99dbf1`.
+Compiles clean at **8 pages**, zero undefined references or citations, **zero overfull
+boxes**, all pages visually checked. `\Comments=0` and every draft comment macro is
+deleted, so no query text remains in the source.
+
+The state-contingency claim was retracted on 2026-08-01. The oracle disagreement
+statistic is uncalibrated against a no-information null, so the paper now reports the
+oracle comparison as descriptive. See the correction at the top of
+`STATE_HEADROOM_RESULTS.md`. Every deployable result is unchanged.
 
 ## Must do before submitting
 
-0. **Set `\Comments=0`** (line 46 of `icaif_main.tex`). It is currently `1` so the five
-   blue `[AB: ...]` queries for Arjun render. At `1` the paper is 9 pages; at `0` the
-   notes vanish and it is a clean 8 with zero overfull boxes. Answer the five queries
-   first, then delete the `\alessio{...}` calls and flip the flag.
-   See `OPEN_ITEMS_AFTER_THIRD_REVIEW.md` for what each one asks.
 1. **Anonymize.** ICAIF 2026 is double-blind and the CFP asks for the `anonymous`
    parameter. Change line 16 to:
    `\documentclass[sigconf,review,anonymous]{acmart}`
@@ -22,10 +23,10 @@ above 1.5pt, all pages visually checked.
 2. **Code link.** The footnote on the first page promises "an anonymized repository for
    peer review" but carries no URL. Either add an anonymous4open / blinded Zenodo link
    or drop the sentence. 39% of ICAIF papers ship replication code and reviewers look.
-3. **Push the state-contingency code.** The oracle, decision stump, and reward-normalized
-   PPO experiments are not in the shared repo (its head is still the PR #9 merge), so the
-   67 to 73%, the $188 to $419 headroom, the $804, and the $893 cannot currently be
-   regenerated. Ask Arjun to push those scripts.
+3. ~~**Push the state-contingency code.**~~ Done. PR #10 merged 2026-08-01, adding
+   `experiments/state_headroom.py`, `experiments/normalized_ppo.py`, their validators,
+   three test files, and the frozen `STATE_HEADROOM_PROTOCOL.md`. All 179 tests pass.
+   Every number in Subsec. 4.3 is now regenerable.
 
 ## Known, accepted, no action needed
 

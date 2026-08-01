@@ -1,79 +1,60 @@
-# Open items after the third section review (2026-07-31)
+# Open items after the third section review: all closed, 2026-08-01
 
 The 116 confirmed findings of `section-review-2026-07-31-third.md` were applied across
-three commits (`d46b39a`, `a48c354`, `37e5029`), each gated by an independent
-fresh-context judge. The paper compiles at 8 pages with zero overfull boxes and zero
-undefined references.
+three judge-gated commits. Five items could not be settled from the manuscript and were
+raised as blue in-text queries. All five are now answered and the queries are deleted.
 
-Everything below is what could NOT be settled from the manuscript, the code, or the run
-record in this repository. Each has an inline `% CHECK:` note at the site in
-`icaif_main.tex` so it cannot ship unnoticed.
+## The five, and how each closed
 
-## Needs Arjun or the run record
+1. **The fourth prespecified contrast.** Reported. Oracle minus stump action, mean \$214
+   to \$444 per decision state, CI lower limits \$150 to \$335 and upper limits \$267 to
+   \$583.
+2. **The entropy clause on the gated follow-up.** Entropy *was* selected on validation.
+   `STATE_HEADROOM_PROTOCOL.md` registers the follow-up as "reward-normalized,
+   entropy-regularized PPO". Both the method and the results now say so, and the results
+   report the selection counts (0.01 chosen in 11/24 low-tier and 8/24 high-tier windows).
+3. **The follow-up's Holm family.** One member per pool, so the adjusted and raw
+   p-values are equal. This is why $p=.0001$ reconciles with the $.0004$ floor of the
+   four-member family.
+4. **The denominator for the 28 adverse cells.** 28 of 150 per treatment, with Holm
+   applied within each pool over one 50-contrast family.
+5. **The transfer counts.** PPO has one favorable and three adverse directions surviving
+   all four block lengths, while A2C, DQN, QR-DQN, and RecurrentPPO each have zero.
 
-1. **The gated follow-up's treatment.** The Results previously said the reward-normalized
-   PPO run also used validation-selected entropy, which the prespecification in
-   Subsec. 3.2 does not carry. Per the decision taken during the pass, both sites now
-   read reward-only normalization. If the run did select entropy on validation, add it
-   back to Subsec. 3.2 as well, not to the Results alone.
-   Site: the `% CHECK:` above "Because the diagnostic shows headroom".
+## The correction that came out of it
 
-2. **The gated follow-up's Holm family.** The reported $p_{\mathrm{Holm}}=.0001$
-   reconciles with the $.0004$ resolution floor asserted for the four-member family only
-   if this follow-up carries a one-member family. State the family in the sentence.
-   Site: the `% CHECK:` after "Reward scale alone therefore does not explain".
+Answering these surfaced a defect in the diagnostic itself. The action-disagreement
+statistic is uncalibrated: with four actions and exchangeable values, the ex-post argmax
+differs from any fixed action 75% of the time by construction. Every observed rate (67.0%
+to 73.2%) sits below that null and **every bootstrap interval in the run record contains
+it**. The dollar headroom carries the same selection bias, which Holm correction does not
+address.
 
-3. **The denominator for the 28 surviving adverse cells.** The retail-frontier paragraph
-   runs three cell populations (25 per pool, 150 signs, and the 50-cell Holm family per
-   pool) and the count of 28 is attached to none of them.
-   Site: the `% CHECK:` in Subsec. 4.4.
+The paper therefore retracts the state-contingent-headroom claim and reports the oracle
+comparison as descriptive. Full detail in the correction at the top of
+`STATE_HEADROOM_RESULTS.md`. Every deployable result stands unchanged: the stump gives no
+reliable held-out gain, the learned policies each execute one action in the logged
+first-seed trace, and reward normalization does not restore action diversity.
 
-4. **The fourth prespecified contrast.** Subsec. 3.2 declares four Holm-corrected
-   contrasts and the paper reports three, now stated explicitly ("We report the first
-   three"). The oracle against the decision stump is still unreported. Either report it
-   in one clause or leave it as a declared family member.
+## Two protocol notes worth keeping
 
-5. **Cross-pool transfer, the closing claim.** "we find no general transfer pattern for
-   the other algorithms" is still qualitative. If the run record supports a count of
-   surviving directions per algorithm, state it.
+- **The headroom gate is the upper-limit form.** `STATE_HEADROOM_PROTOCOL.md`, frozen
+  2026-07-28, registers the "little headroom" criterion as the *upper* 95% confidence
+  limit below 10% at both horizons. An earlier edit reverted the paper to a lower-limit
+  form. That was wrong and has been undone.
+- **H3 and H4 are overloaded across two frozen documents.** `SPEC.md` (2026-07-16) uses
+  H3 for the fee-tier hypothesis and H4 for transfer. `STATE_HEADROOM_PROTOCOL.md`
+  (2026-07-28) introduces "the new H3 state-contingency family". Both are cited by this
+  paper, so the labels are ambiguous and are kept out of the manuscript entirely. Worth
+  renumbering in the protocol documents before either circulates.
 
-## Resolved from the code during this pass, for the record
+## Resolved earlier from the code, for the record
 
-These were group (c) items in the review and were settled by reading the repository, so
-they are now in the paper and need no further action.
+Tick spacings 10 and 60; heuristics consulted hourly while only learned agents carry a
+declared schedule (`envs/schedule.py`); ILMinimizer scales volatility by twice the square
+root of a 24- or 168-hour period against the volatility-proportional arm's selected
+multiplier (`policies/baselines.py`); training discount is the Stable-Baselines3 default
+0.99; the hourly grid forward-fills state and zero-fills flows (`data/aggregate.py`).
 
-- **Tick spacings**: 10 at the 0.05% tier, 60 at the 0.30%
-  (`src/.../envs/uniswap_v3.py`, `TICK_SPACING`). Verified consistent with the
-  label-to-price ratios already quoted in Subsec. 4.1.
-- **Heuristic decision schedule**: heuristics run on their native logic, consulted every
-  hour, and decide for themselves whether to act. Only learned agents carry a declared
-  schedule wrapper (`src/.../envs/schedule.py`, "Competitors are never wrapped").
-- **ILMinimizer against the volatility-proportional strategy**: the first scales
-  volatility by a selected multiplier $k \in \{3,5,7,10,15\}$, the second by twice the
-  square root of a selected 24- or 168-hour period (`src/.../policies/baselines.py`).
-- **Training discount**: never set in the grid, so it is the Stable-Baselines3 default
-  $\gamma=0.99$.
-- **Hourly grid fill rule**: state variables (price, liquidity, tick) forward-filled,
-  flow variables zero-filled (`src/.../data/aggregate.py`).
-- **Implementation**: Stable-Baselines3 plus its contrib package (QR-DQN, RecurrentPPO).
-- **The seed question**: the run record states "every *logged first-seed* learned policy
-  uses one distinct action per pool" (`reports/ICAIF_EXTENSION_RESULTS.md`). Only the
-  first seed's action trace was logged, so the paper now scopes the claim in the Results
-  and records the two-seed budget in Limitations. Do not strengthen it to both seeds
-  unless the record is extended.
-
-## Three references added, all verified
-
-Cleared through OpenAlex and cross-checked (Crossref where a Crossref DOI exists,
-Semantic Scholar and the Project Euclid landing page for the Künsch page range).
-
-- `raffin2021sb3` — Raffin et al., JMLR 22(268), 2021. JMLR has no DOIs, which is why
-  Crossref carries no record.
-- `kunsch1989jackknife` — Künsch, Ann. Statist. 17(3):1217-1241, 1989.
-- `holm1979simple` — Holm, Scand. J. Statist. 6:65-70, 1979. The JSTOR DOI is not
-  registered with Crossref, which is normal for that era.
-
-The circular variant of the block bootstrap is due to Politis and Romano (1992), a book
-chapter that does not resolve in OpenAlex. Rather than attribute it to Künsch, the
-sentence cites Künsch for block resampling itself. If the Politis-Romano chapter is
-wanted, verify it outside the pipeline first.
+Three references were added and verified through OpenAlex, with Crossref where a Crossref
+DOI exists: `raffin2021sb3`, `kunsch1989jackknife`, `holm1979simple`.
