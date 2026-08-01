@@ -2,6 +2,16 @@
 
 Frozen before generating or reading any result from this experiment: 2026-07-28.
 
+> **Amendment, 2026-08-01 (labels only, no design change).** This document originally
+> called its four-contrast family "the new H3", which collides with `SPEC.md` (frozen
+> 2026-07-16), where H3 is the fee-tier hypothesis and H4 is transfer. Both documents
+> govern experiments reported in the same paper, so the numbering was ambiguous. The
+> families here are renumbered **H5** (state contingency) and **H6** (the gated
+> reward-normalization follow-up, previously unnumbered). `SPEC.md` keeps H1 to H4
+> unchanged. Nothing about the design, the contrasts, the correction, or the criteria
+> changes, and no result is affected: the H5 family is the same four contrasts under the
+> same within-pool Holm correction it was frozen with.
+
 ## Question
 
 The completed CLEB collection shows that every learned policy uses one distinct
@@ -90,7 +100,7 @@ only that step's matched-geometry validation scores from the completed collectio
 Ties follow that fixed algorithm order. Its already-held-out test reward is the
 validation-selected RL comparator.
 
-The new H3 state-contingency family contains exactly four two-sided contrasts
+The H5 state-contingency family contains exactly four two-sided contrasts
 within each pool:
 
 1. 168-hour local clairvoyant headroom: oracle minus fixed;
@@ -121,7 +131,9 @@ families. They receive seeded circular moving-block bootstrap confidence interva
 
 ## Conditional follow-up
 
-Reward-normalized, entropy-regularized PPO remains gated. It will be run only if
+Reward-normalized, entropy-regularized PPO remains gated, and its
+normalized-minus-standard reward contrast is the **H6** family, a single member within
+each pool, so its Holm-adjusted and raw p-values are equal. It will be run only if
 the completed headroom experiment finds non-negligible local opportunity. If both
 horizons support little headroom, optimization diagnostics cannot change the
 economic conclusion and no additional PPO sweep will be run.

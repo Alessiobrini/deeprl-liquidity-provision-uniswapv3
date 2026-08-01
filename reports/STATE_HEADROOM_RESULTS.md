@@ -1,7 +1,9 @@
 # State-contingent control headroom
 
 Finalized: 2026-07-28. The prospective design was frozen in
-`STATE_HEADROOM_PROTOCOL.md` before generating a test result.
+`STATE_HEADROOM_PROTOCOL.md` before generating a test result. Its hypothesis families
+were renumbered H5 and H6 on 2026-08-01 to stop colliding with `SPEC.md`'s H3 and H4.
+Labels only, no design or result changed.
 
 ## Completeness and audit
 
@@ -12,7 +14,7 @@ Finalized: 2026-07-28. The prospective design was frozen in
 - The independent audit reports `COMPLETE`, no problems, and collection SHA-256
   `adf86f0d0ee3108f5e35519fa2bd01755088e88d0f2da521a0662fa7b54271fc`.
 - One inferential observation is one held-out window. Results use a seeded circular
-  moving-block bootstrap and the prospectively declared four-contrast H3 Holm family
+  moving-block bootstrap and the prospectively declared four-contrast H5 Holm family
   within each pool.
 
 ## Correction, 2026-08-01: the oracle disagreement statistic is uncalibrated

@@ -42,11 +42,13 @@ first-seed trace, and reward normalization does not restore action diversity.
   2026-07-28, registers the "little headroom" criterion as the *upper* 95% confidence
   limit below 10% at both horizons. An earlier edit reverted the paper to a lower-limit
   form. That was wrong and has been undone.
-- **H3 and H4 are overloaded across two frozen documents.** `SPEC.md` (2026-07-16) uses
-  H3 for the fee-tier hypothesis and H4 for transfer. `STATE_HEADROOM_PROTOCOL.md`
-  (2026-07-28) introduces "the new H3 state-contingency family". Both are cited by this
-  paper, so the labels are ambiguous and are kept out of the manuscript entirely. Worth
-  renumbering in the protocol documents before either circulates.
+- **The H-label collision is resolved.** `SPEC.md` (2026-07-16) keeps H1 to H4, since it
+  is the earlier freeze, carries the most references, and is asserted on in
+  `tests/test_combined.py`. `STATE_HEADROOM_PROTOCOL.md` (2026-07-28) called its family
+  "the new H3", which collided; its families are renumbered **H5** (state contingency)
+  and **H6** (the gated reward-normalization follow-up) as a dated amendment recorded in
+  both the protocol and the results, labels only with no design or result change. The
+  manuscript carries no H-labels at all, since it defines none of them.
 
 ## Resolved earlier from the code, for the record
 
