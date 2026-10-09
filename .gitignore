@@ -166,6 +166,10 @@ __pycache__/
 # email in #SBATCH --mail-user), database credentials, .env files.
 # CLAUDE.md is tracked for now and gets ignored at submission.
 
-# Assistant instruction files stay local and out of the public repository.
+# Assistant instruction files and internal working notes stay local and out of the public repository.
 /CLAUDE.md
 .claude/
+/reports/
+/SPEC.md
+/HANDOVER.md
+/DIVERGENCES.md

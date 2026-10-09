@@ -1,22 +1,31 @@
-# RL for active liquidity provision in Uniswap v3
+# Execution-Aware Benchmarking of Reinforcement Learning for Concentrated Liquidity Provision
 
-Multi-pool benchmarking and transfer learning.
+**Arjun Mahesh** and **Alessio Brini**, Pratt School of Engineering, Duke University
 
-Successor to *"Improving DeFi Accessibility through Efficient Liquidity Provisioning
-with Deep Reinforcement Learning"* ([arXiv 2501.07508](https://arxiv.org/abs/2501.07508),
-AAAI 2025 Workshop on AI for Social Impact).
+Accepted at the 7th ACM International Conference on AI in Finance (ICAIF 2026), Milan, Italy, November 16 and 17, 2026.
 
-The environment, state, action semantics, reward, and walk-forward training follow the
-earlier work. Fees are the exception: they now come from every individual swap
-(22.6M of them) rather than from a price-displacement formula.
+This repository holds the code for the paper: the Uniswap v3 environment, the five learned and six heuristic strategies, the walk-forward protocol, and the scripts that produce every result.
 
-**New here? Read [`HANDOVER.md`](HANDOVER.md)** — what changed, what did not, and how
-to run it. [`SPEC.md`](SPEC.md) is the append-only pre-registration and forensic
-experiment log; its historical result sections include explicitly void reads. The
-audited current results are in [`reports/COMPLETE_EXPERIMENT_RESULTS.md`](reports/COMPLETE_EXPERIMENT_RESULTS.md).
-[`DIVERGENCES.md`](DIVERGENCES.md) is the full audit with file:line evidence.
+## Abstract
 
----
+We introduce the Concentrated Liquidity Execution Benchmark (CLEB), an execution-aware testbed for reinforcement learning (RL) in liquidity provision on Uniswap v3. We control four evaluation axes at once, fee accounting, model selection without data leakage, executable action geometry, and operating costs. We build CLEB from 22.6 million Ethereum mainnet swaps across six pools (three token pairs at two fee tiers) and evaluate five RL algorithms and six heuristics on held-out walk-forward windows. We average across seeds within windows and report paired bootstrap intervals with Holm correction. When rebalancing conserves value and fees are attributed swap by swap, every strategy's mean sits below holding and no algorithm dominates across pools. Evaluated deterministically, each learned policy executes one action per pool in its first seed's recorded trace. To test whether this collapse is economically appropriate, we evaluate every action at each decision state and fit a decision stump over the same state variables. The stump produces no reliable test advantage over a fixed range width selected on validation, and in no pool does a learned policy improve on the best validation heuristic at every block length. The hindsight best action, the maximum over the four realized outcomes, disagrees with any fixed choice 75% of the time when the actions carry no information, so we report the hindsight comparison as descriptive, not as evidence of capturable state contingency. Matching executable action geometry across fee tiers changes which strategy has the highest mean in four of six pools and eliminates one learned policy's apparent advantage at the 0.30% tier. Across capital and gas levels, recentering an out-of-range position is worse than leaving it unchanged in every 0.05% cell and only descriptively favorable in most 0.30% cells. With this state and action set, CLEB therefore characterizes active liquidity provision on this panel as heterogeneous loss mitigation rather than premium capture.
+
+## Citation
+
+```bibtex
+@inproceedings{mahesh2026execution,
+  title     = {Execution-Aware Benchmarking of Reinforcement Learning for Concentrated Liquidity Provision},
+  author    = {Mahesh, Arjun and Brini, Alessio},
+  booktitle = {Proceedings of the 7th ACM International Conference on AI in Finance (ICAIF '26)},
+  address   = {Milan, Italy},
+  publisher = {ACM},
+  year      = {2026}
+}
+```
+
+The DOI and page numbers will be added once the proceedings are published.
+
+The benchmark extends Xu and Brini, *Improving DeFi Accessibility through Efficient Liquidity Provisioning with Deep Reinforcement Learning* ([arXiv 2501.07508](https://arxiv.org/abs/2501.07508), AAAI 2025 Workshop on AI for Social Impact), whose environment, state, action semantics and reward it keeps, and it attributes fees from each of the 22.6 million swaps.
 
 ## Setup
 
@@ -30,29 +39,18 @@ pytest -q                          # 162 tests, ~3s
 TA-Lib needs its C library, which pip cannot install on its own. It comes from
 conda-forge in `environment.yml`; without conda, `brew install ta-lib` first.
 
-## Getting the data
+## Data
 
-The panel is not in git (458MB). Two options.
+The benchmark is built from public Uniswap v3 Swap events on Ethereum mainnet for six pools, USDC/WETH, WBTC/WETH and WETH/USDT at the 0.05% and 0.30% fee tiers, from May 2021 to June 2026, about 44,900 hours per pool. The processed panel, an hourly table and a per-swap fee table for each pool in Parquet format (about 460 MB), is too large for GitHub, so we share it on request. Please write to Alessio Brini (alessio.brini@duke.edu) or Arjun Mahesh (arjun.mahesh@duke.edu).
 
-**Use the bundle.** Unzip `uniswap_panel.zip` into `data/processed/`. That is all the
-code reads.
-
-```bash
-unzip dist/uniswap_panel.zip -d data/processed/
-```
-
-**Or rebuild it** from raw swap events. Needs the sibling `defi-rv` checkout
-(~4.9GB of raw parquet), which is a prerequisite this repo cannot fetch for you:
+Place the files in `data/processed/`, which is all the code reads. To rebuild them from raw Swap events instead, set the raw-data path at the top of `aggregate.py` to a folder holding one Parquet file of raw events per pool, with the event amounts, `sqrtPriceX96`, `liquidity` and `tick`, and run:
 
 ```bash
 python -m src.deeprl_liquidity_provision_uniswapv3.data.aggregate   # hourly panel
 python -m src.deeprl_liquidity_provision_uniswapv3.data.swaps       # per-swap fees
 ```
 
-Six core pools, 3 asset pairs x 2 fee tiers, 2021-05 to 2026-06, ~44,900 hours each.
-The fee tier is independently recovered from the raw data as a check: `aggregate.py`
-asserts that the median disagreement between a swap's two token legs equals the
-declared tier, on all 12 pools.
+As a check, `aggregate.py` recovers each pool's fee tier from the raw data and asserts that the median disagreement between a swap's two token legs equals the declared tier.
 
 ## Running experiments
 
@@ -65,7 +63,7 @@ STEPS=50000 ./scripts/run_algos.sh "ppo"      # a longer budget
 POOLS="usdc_weth_005" ./scripts/run_algos.sh "ppo"     # one pool, to try it out
 ```
 
-Resumable and shardable. One work unit is one (algorithm, pool, rolling step); it
+Resumable and shardable. One work unit is one (algorithm, pool, rolling step). It
 writes its own JSON and is skipped if already done. Stop with ctrl-C, rerun, it picks
 up where it stopped. The config keys the filename, so several algorithms share one
 output directory without colliding.
@@ -90,10 +88,10 @@ off as a finished run.
 **On a SLURM cluster:** `scripts/slurm/rolling_array.sh` is a thin array wrapper that
 maps `$SLURM_ARRAY_TASK_ID` onto the same `--shard` index, so there is no
 cluster-only code path. Export `PROJECT_ROOT` and activate the conda environment
-before `sbatch`; set `REMOTE_HOST`, `REMOTE_PROJECT`, and `REMOTE_CONDA` when using
+before `sbatch`, and set `REMOTE_HOST`, `REMOTE_PROJECT`, and `REMOTE_CONDA` when using
 `scripts/sync_to_cluster.sh`.
 
-This is a **CPU** workload. Measured ~6,100 steps/s on CPU; the nets are far too small
+This is a **CPU** workload. It runs at about 6,100 steps/s on CPU. The nets are far too small
 for a GPU to beat kernel-launch overhead, and the env emits float64, which Apple MPS
 cannot take at all. Request CPU nodes.
 
@@ -122,8 +120,7 @@ python -m src.deeprl_liquidity_provision_uniswapv3.experiments.action_geometry \
   --report-dir outputs/action_geometry_v1/aggregate_block4
 ```
 
-Both aggregators refuse partial collections. The frozen protocols, practitioner
-motivation, audit status, and final results are under `reports/`.
+Both aggregators refuse partial collections.
 
 ## The protocol
 
@@ -160,8 +157,7 @@ scripts/
   run_algos.sh      multi-algorithm runner
   sync_to_cluster.sh    push / pull / status against a SLURM cluster
   slurm/            array wrappers
-  exhibits/         one script per cited claim in SPEC.md
-reports/            frozen extension protocols, audits, results, and figures
+  exhibits/         one script per supporting analysis
 tests/              162 tests; the protocol and the accounting are both covered
 rl-code/            the earlier codebase, kept for reference only. Superseded; do not
                     build on it or on the outputs under rl-code/output/.
@@ -180,7 +176,7 @@ is about the algorithm and not the action space:
 | `qrdqn` | distributional (sb3-contrib) |
 | `recurrentppo` | LSTM policy (sb3-contrib) |
 
-SAC and TD3 are deliberately absent: they need a `Box` action space, which is a
+SAC and TD3 are absent by design: they need a `Box` action space, which is a
 different formulation of the problem.
 
 `--paper-extractor` uses the earlier policy network (BatchNorm -> [4,2] -> 128, tanh)
