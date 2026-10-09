@@ -1,7 +1,7 @@
 """The previous paper's policy network, ported.
 
 Its runner did NOT use a default MLP. It built PPO with a `CustomMLPFeatureExtractor`
-(`rl-code/custom_env_folder/custom_env.py:545-566`) whose first layer is a
+(in the codebase of Xu and Brini, 2025, arXiv 2501.07508) whose first layer is a
 non-affine BatchNorm over the raw observation:
 
     BatchNorm1d(obs_dim, affine=False)

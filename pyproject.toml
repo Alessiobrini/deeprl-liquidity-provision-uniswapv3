@@ -7,9 +7,8 @@ name = "deeprl-liquidity-provision-uniswapv3"
 version = "0.2.0"
 description = "Reinforcement learning for active liquidity provision in Uniswap v3"
 requires-python = ">=3.11"
-# Versions are pinned here and in environment.yml. rl-code/requirements.txt pinned
-# nothing, and the stable-baselines3 API moves fast enough that this alone may explain
-# why the previous paper's results did not reproduce.
+# Versions are pinned here and in environment.yml because the stable-baselines3 API
+# changes between releases, and unpinned versions can change results.
 dependencies = [
     "numpy>=2.4,<3",
     "pandas>=3.0,<4",

@@ -184,7 +184,7 @@ def main() -> None:
     ap.add_argument("--retail", type=Path)
     ap.add_argument("--geometry", type=Path)
     ap.add_argument("--headroom", type=Path)
-    ap.add_argument("--out", type=Path, default=Path("reports/figures"))
+    ap.add_argument("--out", type=Path, default=Path("outputs/figures"))
     args = ap.parse_args()
     if not args.retail and not args.geometry and not args.headroom:
         ap.error("pass --retail, --geometry, and/or --headroom")

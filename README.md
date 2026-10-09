@@ -33,7 +33,7 @@ The benchmark extends Xu and Brini, *Improving DeFi Accessibility through Effici
 conda env create -f environment.yml
 conda activate deeprl-uniswap
 pip install -e ".[dev]"           # editable install; no PYTHONPATH needed afterwards
-pytest -q                          # 162 tests, ~3s
+pytest -q                          # 200 tests, a few seconds
 ```
 
 TA-Lib needs its C library, which pip cannot install on its own. It comes from
@@ -147,21 +147,37 @@ src/deeprl_liquidity_provision_uniswapv3/
   agents/     registry.py (5 algorithms), extractors.py (the BatchNorm policy net)
   policies/   baselines.py (the heuristic strategies)
   experiments/
-    rolling.py      THE protocol: walk-forward. Start here.
-    transfer_rolling.py, sensitivity.py, combined.py
-    retail_frontier.py, action_geometry.py, validate_*.py
+    rolling.py      the walk-forward protocol. Start here.
     bakeoff.py      splits, env construction, scoring
     agent_arm.py    training envs
-    leaderboard.py, global_rule.py, transfer_strategies.py
+    combined.py, sensitivity.py, action_geometry.py, transfer_rolling.py
+    state_headroom.py, oracle_calibration.py, normalized_ppo.py, ppo_budget_ablation.py
+    retail_frontier.py, retail_frontier_summary.py, transfer_robustness_summary.py
+    plot_extensions.py   the paper's figures
+    validate_*.py        audits of the raw outputs
 scripts/
-  run_algos.sh      multi-algorithm runner
+  run_algos.sh          multi-algorithm runner
   sync_to_cluster.sh    push / pull / status against a SLURM cluster
-  slurm/            array wrappers
-  exhibits/         one script per supporting analysis
-tests/              162 tests; the protocol and the accounting are both covered
-rl-code/            the earlier codebase, kept for reference only. Superseded; do not
-                    build on it or on the outputs under rl-code/output/.
+  slurm/                array wrappers, one per experiment
+tests/              200 tests; the protocol and the accounting are both covered
 ```
+
+## Where each result comes from
+
+Every experiment module writes one JSON per work unit with `--out <dir>` (sharded with `--shard i --of n`), and the same module with `--aggregate --report-dir <dir> --bootstrap-block <b>` produces the paired bootstrap intervals with Holm correction. The paper reports block lengths 2, 4, 6 and 8, with 4 as the primary length. Each module lists its options under `--help`.
+
+| Result in the paper | Module in `experiments/` | Cluster wrapper in `scripts/slurm/` |
+|---|---|---|
+| Multi-pool benchmark (Table 2) | `rolling.py`, aggregated by `combined.py` | `rolling_array.sh` |
+| Matched executable action geometry (Figure 1) | `rolling.py` with matched widths, then `action_geometry.py` | `rolling_array.sh` |
+| Hindsight action diagnostic and decision stump (Table 3) | `state_headroom.py` | `state_headroom_array.sh` |
+| Sign-flip decomposition of the hindsight gap | `oracle_calibration.py` | `oracle_calibration_array.sh` |
+| Reward-normalization follow-up for PPO | `normalized_ppo.py` | `normalized_ppo_array.sh` |
+| Retail frontier (Figure 2) | `retail_frontier.py`, `retail_frontier_summary.py` | `retail_frontier_array.sh` |
+| Cross-pool transfer | `transfer_rolling.py`, `transfer_robustness_summary.py` | `transfer_array.sh` |
+| Decision-schedule, reward and state variants | `rolling.py` variants, compared by `sensitivity.py` | `rolling_array.sh` |
+| Longer training budgets for PPO | `ppo_budget_ablation.py` | `ppo_budget_ablation_array.sh` |
+| Figures 1 and 2 | `plot_extensions.py` | |
 
 ## Algorithms
 

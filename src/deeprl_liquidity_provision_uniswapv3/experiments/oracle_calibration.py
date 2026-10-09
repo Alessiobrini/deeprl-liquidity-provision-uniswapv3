@@ -6,7 +6,7 @@ state and action main effects of each held-out action-value matrix and applies a
 block-wild null to its residual state--action interaction. One JSON remains one
 held-out rolling window.
 
-The frozen protocol is ``reports/ORACLE_CALIBRATION_PROTOCOL.md``.
+The protocol was fixed before the runs and is described in Sec. 4.3 of the paper.
 """
 from __future__ import annotations
 

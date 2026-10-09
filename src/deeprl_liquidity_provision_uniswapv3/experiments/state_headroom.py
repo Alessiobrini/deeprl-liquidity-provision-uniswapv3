@@ -8,8 +8,8 @@ rational collapse from a learning failure by comparing:
 * a validation-selected RL algorithm from the completed matched-geometry run; and
 * a non-deployable local clairvoyant action diagnostic.
 
-The full prospective specification is frozen in
-``reports/STATE_HEADROOM_PROTOCOL.md``. One JSON is one held-out rolling window.
+The specification was fixed before the runs and is described in Sec. 3.2 of the
+paper. One JSON is one held-out rolling window.
 """
 from __future__ import annotations
 

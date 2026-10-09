@@ -1,7 +1,7 @@
 """The paper's four competitor strategies, ported to the rebuilt environment.
 
-Functional forms and parameter grids follow the originals in
-``baseline_strategies.py`` so the comparison stays with the paper's own
+Functional forms and parameter grids follow the originals in the codebase of
+Xu and Brini (2025) so the comparison stays with the paper's own
 competitor set. Three things about the originals do not carry over, and each was
 a defect rather than a design choice:
 

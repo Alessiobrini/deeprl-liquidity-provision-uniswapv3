@@ -3,9 +3,8 @@
 #   conda env create -f environment.yml
 #   conda activate deeprl-uniswap
 #
-# Versions are pinned deliberately. rl-code/requirements.txt pinned nothing, and the
-# stable-baselines3 API moves fast enough that this alone may explain why the previous
-# paper's results did not reproduce.
+# Versions are pinned because the stable-baselines3 API changes between releases, and
+# unpinned versions can change results.
 #
 # TA-Lib needs the C library underneath the Python wrapper and does NOT pip-install on
 # its own. It comes from conda-forge here for exactly that reason; on a machine without
