@@ -364,7 +364,7 @@ def run_unit(pool: str, step: int) -> dict:
         "diagnostics": diagnostics,
         "provenance": {
             "git_sha": _git_sha(),
-            "protocol": "reports/STATE_HEADROOM_PROTOCOL.md",
+            "protocol": "reproducibility/protocols.md#state-headroom",
             "widths": list(WIDTHS),
             "execution_widths": list(EXECUTION_WIDTHS),
             "horizons": list(HORIZONS),

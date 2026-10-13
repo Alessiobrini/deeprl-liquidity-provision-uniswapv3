@@ -164,7 +164,7 @@ __pycache__/
 #
 # Keep out: cluster account identifiers (usernames, login hosts, /hpc paths, personal
 # email in #SBATCH --mail-user), database credentials, .env files.
-# CLAUDE.md is tracked for now and gets ignored at submission.
+# Assistant instructions and internal working notes stay untracked.
 
 # Assistant instruction files and internal working notes stay local and out of the public repository.
 /CLAUDE.md
@@ -173,3 +173,8 @@ __pycache__/
 /SPEC.md
 /HANDOVER.md
 /DIVERGENCES.md
+/AGENTS.md
+.codex/
+
+# Generated human-readable reports can contain private machine paths.
+/reproducibility/artifacts/**/report.txt

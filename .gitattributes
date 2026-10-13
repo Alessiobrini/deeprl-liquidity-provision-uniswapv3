@@ -1,0 +1,2 @@
+# Preserve generated artifact bytes so their SHA-256 hashes survive checkout.
+reproducibility/artifacts/** -text

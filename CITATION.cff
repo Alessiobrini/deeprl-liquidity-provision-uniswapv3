@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use CLEB, please cite the associated ICAIF 2026 paper."
+title: "CLEB: Concentrated Liquidity Execution Benchmark"
+type: software
+authors:
+  - family-names: Mahesh
+    given-names: Arjun
+    orcid: "https://orcid.org/0009-0008-4775-8317"
+  - family-names: Brini
+    given-names: Alessio
+    orcid: "https://orcid.org/0000-0003-1121-818X"
+repository-code: "https://github.com/Alessiobrini/deeprl-liquidity-provision-uniswapv3"
+preferred-citation:
+  type: conference-paper
+  title: "Execution-Aware Benchmarking of Reinforcement Learning for Concentrated Liquidity Provision"
+  authors:
+    - family-names: Mahesh
+      given-names: Arjun
+    - family-names: Brini
+      given-names: Alessio
+  collection-title: "Proceedings of the 7th ACM International Conference on AI in Finance"
+  year: 2026
+  doi: "10.1145/3858063.3858832"
