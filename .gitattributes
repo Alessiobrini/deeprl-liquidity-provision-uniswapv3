@@ -1,2 +1,3 @@
 # Preserve generated artifact bytes so their SHA-256 hashes survive checkout.
 reproducibility/artifacts/** -text
+reproducibility/artifacts/**/*.csv whitespace=cr-at-eol
