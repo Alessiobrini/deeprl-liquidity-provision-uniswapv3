@@ -1,0 +1,6 @@
+algorithm,tested_directions,robust_favorable,robust_adverse,blocks,alpha
+a2c,18,0,0,2 4 6 8,0.05
+dqn,18,0,0,2 4 6 8,0.05
+ppo,18,1,3,2 4 6 8,0.05
+qrdqn,18,0,0,2 4 6 8,0.05
+recurrentppo,18,0,0,2 4 6 8,0.05

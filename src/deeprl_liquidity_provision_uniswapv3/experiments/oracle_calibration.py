@@ -223,7 +223,7 @@ def run_unit(pool: str, step: int, *, null_samples: int = NULL_SAMPLES,
         "diagnostics": diagnostics,
         "provenance": {
             "git_sha": _git_sha(),
-            "protocol": "reports/ORACLE_CALIBRATION_PROTOCOL.md",
+            "protocol": "reproducibility/protocols.md#oracle-calibration",
             "widths": list(WIDTHS),
             "execution_widths": list(EXECUTION_WIDTHS),
             "horizons": list(HORIZONS),

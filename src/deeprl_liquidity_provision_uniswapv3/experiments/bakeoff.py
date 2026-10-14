@@ -18,6 +18,7 @@ because five seeds on one price trajectory are not five independent observations
 from __future__ import annotations
 
 import argparse
+import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -31,7 +32,9 @@ from ..envs.uniswap_v3 import UniswapV3Env
 from ..envs.schedule import agent_schedule
 from ..policies import baselines as B
 
-PANEL = Path(__file__).resolve().parents[3] / "data/processed"
+PANEL = Path(os.environ.get(
+    "CLEB_DATA_DIR", str(Path(__file__).resolve().parents[3] / "data/processed")
+)).expanduser()
 WINDOW = 1500
 WARMUP = 168
 FEE_MODEL = "per_swap"
@@ -39,7 +42,7 @@ FEE_MODEL = "per_swap"
 # WETH (~$40k) on one pool and `x: 0.15` WBTC (~$6-10k) on another, and its text claims
 # `x_0 = 2`, matching neither. A per-pool base that also drifts with price makes the
 # cross-pool reward levels in its Tab. IV/V incomparable, and comparing pools is the
-# paper's whole point. Recorded in DIVERGENCES.md as a deliberate fix, not an oversight.
+# paper's whole point. See reproducibility/protocols.md for the fixed capital convention.
 CAPITAL_USD = 30_000.0
 
 
